@@ -38,6 +38,7 @@ const {
   hasImages,
   processedCount,
   isDownloadingAll,
+  isAddingImages,
   addImages,
   addImageFromUrl,
   selectImage,
@@ -334,12 +335,17 @@ async function handleDither() {
   }
 }
 
+const DITHER_DEBOUNCE_MS = 300
 let ditherTimeout: ReturnType<typeof setTimeout> | null = null
 let skipNextDither = false
 function debouncedDither() {
   if (ditherTimeout) clearTimeout(ditherTimeout)
-  ditherTimeout = setTimeout(() => handleDither(), 300)
+  ditherTimeout = setTimeout(() => handleDither(), DITHER_DEBOUNCE_MS)
 }
+
+// True while a newly selected image is being analyzed, before dithering takes over
+const isPreparing = ref(false)
+let preparingTimeout: ReturnType<typeof setTimeout> | null = null
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
@@ -629,10 +635,24 @@ watch(selectedImage, async (newImage) => {
     originalWidth.value = newImage.naturalWidth
     originalHeight.value = newImage.naturalHeight
 
+    // Show the spinner during palette analysis when a dither will follow
+    const willDither = !newImage.ditheredDataUrl || newImage.isStale
+    if (willDither) {
+      if (preparingTimeout) clearTimeout(preparingTimeout)
+      isPreparing.value = true
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    }
+
     const img = await loadImage(newImage.originalSrc)
 
     invalidateQuantCache()
     const colors = await analyzePalette(img)
+
+    if (willDither) {
+      // Hold until the debounced dither has started (it sets isProcessing), so the
+      // spinner doesn't flicker off; falls back to clearing if no dither runs.
+      preparingTimeout = setTimeout(() => { isPreparing.value = false }, DITHER_DEBOUNCE_MS + 50)
+    }
 
     // Always store the analyzed palette so "Original" reflects this image
     updateOriginalPalette(colors)
@@ -976,7 +996,7 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, smo
 
                 <!-- Processing overlay covers exactly the image -->
                 <div
-                  v-if="selectedImage.isProcessing"
+                  v-if="selectedImage.isProcessing || isPreparing || isAddingImages"
                   class="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/30"
                 >
                   <UIcon name="i-lucide-loader-2" class="size-8 animate-spin text-ditherit" />

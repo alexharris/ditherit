@@ -47,6 +47,8 @@ export const MAX_UPLOAD_MB = 100
 const images = ref<GalleryImage[]>([])
 const selectedId = ref<string | null>(null)
 const isDownloadingAll = ref(false)
+const addingCount = ref(0) // >0 while files are being decoded/downscaled
+const isAddingImages = computed(() => addingCount.value > 0)
 
 const selectedImage = computed(() =>
   images.value.find(img => img.id === selectedId.value) || null
@@ -233,6 +235,17 @@ export function useImageGallery() {
   }
 
   async function addImages(files: FileList | File[]): Promise<AddImagesResult> {
+    addingCount.value++
+    try {
+      // Let the loading indicator paint before decoding blocks the main thread
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      return await addImagesInner(files)
+    } finally {
+      addingCount.value--
+    }
+  }
+
+  async function addImagesInner(files: FileList | File[]): Promise<AddImagesResult> {
     const isMobile = import.meta.client && window.innerWidth < 1024
     const LARGE_FILE_THRESHOLD = isMobile ? 1 * 1024 * 1024 : 2 * 1024 * 1024
     const fileArray = Array.from(files).filter(f => f.type.startsWith('image/'))
@@ -494,6 +507,7 @@ export function useImageGallery() {
     hasImages,
     processedCount,
     isDownloadingAll,
+    isAddingImages,
 
     // Methods
     addImages,
