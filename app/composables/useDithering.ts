@@ -1,6 +1,7 @@
 import type { BayerSize } from '~/utils/dithering'
 
-// Lazily loaded — defers 393KB parse cost until first dither operation
+// Used only for palette analysis (dithering itself is in ~/utils/dithering).
+// Lazily loaded — defers 393KB parse cost until the first palette analysis.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type RgbQuantConstructor = new (opts: any) => any
 let _RgbQuant: RgbQuantConstructor | null = null
@@ -52,9 +53,6 @@ export interface RgbQuantOptions {
   boxPxls: number
   initColors: number
   minHueCols: number
-  dithKern: string
-  dithDelta: number
-  dithSerp: boolean
   palette: number[][]
   reIndex: boolean
   useCache: boolean
@@ -128,10 +126,6 @@ const sizeValid = ref(true)
 const analyzeColorCount = ref(8)
 const autoApply = ref(true)
 
-// RgbQuant instance cache — reused when only algorithm/serpentine changes
-let cachedQuant: any = null
-let cachedPaletteKey = ''
-
 // Bayer Web Worker (lazily created)
 let worker: Worker | null = null
 
@@ -148,10 +142,6 @@ export function useDithering() {
     return worker
   }
 
-  function getPaletteKey(pal: number[][]): string {
-    return pal.map(c => c.join(',')).join('|')
-  }
-
   const rgbQuantOptions = computed<RgbQuantOptions>(() => ({
     colors: palette.value.length || 8,
     method: 2,
@@ -159,9 +149,6 @@ export function useDithering() {
     boxPxls: 2,
     initColors: 4096,
     minHueCols: 2000,
-    dithKern: algorithm.value,
-    dithDelta: 0,
-    dithSerp: serpentine.value,
     palette: palette.value,
     reIndex: false,
     useCache: true,
@@ -269,55 +256,21 @@ export function useDithering() {
           }
         }
       } else if (algorithm.value === 'Simple2D') {
-        // --- Simple 2D: custom implementation (not supported by RgbQuant) ---
+        // --- Simple 2D ---
         const paletteToUse = palette.value.length > 0 ? palette.value : await analyzePalette(sourceImage)
         const imageData = ctx.getImageData(0, 0, ditherWidth, ditherHeight)
         simple2DDither(ctx, imageData, paletteToUse, pixeliness.value, colorSpace.value, smoothPixels.value)
       } else if (algorithm.value === 'Dizzy') {
-        // --- Dizzy: custom implementation (not supported by RgbQuant) ---
+        // --- Dizzy ---
         const paletteToUse = palette.value.length > 0 ? palette.value : await analyzePalette(sourceImage)
         const imageData = ctx.getImageData(0, 0, ditherWidth, ditherHeight)
         dizzyDither(ctx, imageData, paletteToUse, pixeliness.value, colorSpace.value, smoothPixels.value)
-      } else if (colorSpace.value === 'oklab') {
-        // --- OKLab error diffusion: bypass RgbQuant, use kernelDiffusionDither ---
-        // RGB mode keeps using q.reduce() (RgbQuant) because the clamping fix lives
-        // in patch-rgbquant.js and RgbQuant's Rec. 709 color distance is well-tested.
-        // Extending the patch script with OKLab math would be fragile, so OKLab
-        // diffusion is handled entirely in our own kernelDiffusionDither instead.
+      } else {
+        // --- Kernel error diffusion (Floyd-Steinberg, Atkinson, etc.) in RGB or OKLab ---
+        // Pixelation is applied once below, after upscaling, so pass blockSize 1 here.
         const paletteToUse = palette.value.length > 0 ? palette.value : await analyzePalette(sourceImage)
         const imageData = ctx.getImageData(0, 0, ditherWidth, ditherHeight)
-        kernelDiffusionDither(ctx, imageData, paletteToUse, pixeliness.value, algorithm.value, serpentine.value, 'oklab', smoothPixels.value)
-      } else {
-        // --- RGB error diffusion path: cache RgbQuant instance ---
-        const palKey = getPaletteKey(palette.value)
-
-        let q: any
-        if (cachedQuant && cachedPaletteKey === palKey) {
-          // Reuse cached instance — palette tables + color cache already built.
-          // Only re-reduce with (potentially different) kernel/serpentine.
-          q = cachedQuant
-        } else {
-          // Palette changed — need fresh instance
-          const RgbQuant = await getRgbQuant()
-          q = new RgbQuant(rgbQuantOptions.value)
-          q.sample(sourceImage)
-          cachedQuant = q
-          cachedPaletteKey = palKey
-        }
-
-        // Capture source alpha before RgbQuant runs — it collapses alpha to
-        // binary (0 or 255), so restore the original partial values after.
-        const sourceAlpha = ctx.getImageData(0, 0, ditherWidth, ditherHeight).data
-
-        // Pass algorithm + serpentine explicitly so the cached instance
-        // uses the current values even if they differ from construction
-        const ditherResult = q.reduce(targetCanvas, 1, algorithm.value, serpentine.value)
-        const imageData = ctx.getImageData(0, 0, ditherWidth, ditherHeight)
-        imageData.data.set(ditherResult)
-        for (let i = 3; i < imageData.data.length; i += 4) {
-          imageData.data[i] = sourceAlpha[i]!
-        }
-        ctx.putImageData(imageData, 0, 0)
+        kernelDiffusionDither(ctx, imageData, paletteToUse, 1, algorithm.value, serpentine.value, colorSpace.value, smoothPixels.value)
       }
 
       // Upscale dithered result to full resolution with nearest-neighbor interpolation
@@ -352,11 +305,6 @@ export function useDithering() {
     } finally {
       isProcessing.value = false
     }
-  }
-
-  function invalidateQuantCache() {
-    cachedQuant = null
-    cachedPaletteKey = ''
   }
 
   async function ditherGif(
@@ -405,28 +353,13 @@ export function useDithering() {
       sourceCtx.putImageData(firstFrame.imageData, 0, 0)
       ctx.drawImage(sourceCanvas, 0, 0, ditherWidth, ditherHeight)
 
-      // Build palette from first frame for diffusion mode (skip for Simple2D, Dizzy and OKLab — they use their own path)
-      let q: any = null
-      if (ditherMode.value === 'diffusion' && algorithm.value !== 'Simple2D' && algorithm.value !== 'Dizzy' && colorSpace.value === 'rgb') {
-        const palKey = getPaletteKey(palette.value)
-        if (cachedQuant && cachedPaletteKey === palKey) {
-          q = cachedQuant
-        } else {
-          const RgbQuant = await getRgbQuant()
-          q = new RgbQuant(rgbQuantOptions.value)
-          q.sample(scratchCanvas)
-          cachedQuant = q
-          cachedPaletteKey = palKey
-        }
-      }
-
-      // For ordered/noise modes, Simple2D, Dizzy, and OKLab, use configured palette (or derive from first frame if empty)
+      // Use the configured palette, or derive one from the first frame if none is set
       let paletteToUse = palette.value
-      if ((ditherMode.value !== 'diffusion' || algorithm.value === 'Simple2D' || algorithm.value === 'Dizzy' || colorSpace.value === 'oklab') && paletteToUse.length === 0) {
-        const RgbQuantClass = await getRgbQuant()
-        const qTemp = new RgbQuantClass({ ...rgbQuantOptions.value, colors: 8, palette: [] })
-        qTemp.sample(scratchCanvas)
-        paletteToUse = qTemp.palette(true)
+      if (paletteToUse.length === 0) {
+        const RgbQuant = await getRgbQuant()
+        const q = new RgbQuant({ ...rgbQuantOptions.value, colors: 8, palette: [] })
+        q.sample(scratchCanvas)
+        paletteToUse = q.palette(true)
       }
 
       // Only enable transparency encoding if the GIF actually has transparent pixels.
@@ -439,8 +372,7 @@ export function useDithering() {
       })
       let tR = 0, tG = 0, tB = 0
       if (hasTransparency) {
-        const paletteRef = paletteToUse.length > 0 ? paletteToUse : (q ? q.palette(true) : [])
-        const transparentColor = findTransparentColor(paletteRef)
+        const transparentColor = findTransparentColor(paletteToUse)
         gif.setOption('transparent', transparentColor)
         tR = (transparentColor >> 16) & 0xFF
         tG = (transparentColor >> 8) & 0xFF
@@ -498,14 +430,9 @@ export function useDithering() {
         } else if (algorithm.value === 'Dizzy') {
           const id = ctx.getImageData(0, 0, ditherWidth, ditherHeight)
           dizzyDither(ctx, id, paletteToUse, 1, colorSpace.value, smoothPixels.value)
-        } else if (colorSpace.value === 'oklab') {
-          const id = ctx.getImageData(0, 0, ditherWidth, ditherHeight)
-          kernelDiffusionDither(ctx, id, paletteToUse, 1, algorithm.value, serpentine.value, 'oklab', smoothPixels.value)
         } else {
-          const ditherResult = q.reduce(scratchCanvas, 1, algorithm.value, serpentine.value)
           const id = ctx.getImageData(0, 0, ditherWidth, ditherHeight)
-          id.data.set(ditherResult)
-          ctx.putImageData(id, 0, 0)
+          kernelDiffusionDither(ctx, id, paletteToUse, 1, algorithm.value, serpentine.value, colorSpace.value, smoothPixels.value)
         }
 
         // Upscale dithered result to final dimensions with nearest-neighbor interpolation
@@ -572,7 +499,6 @@ export function useDithering() {
     analyzeColorCount,
     analyzePalette,
     dither,
-    ditherGif,
-    invalidateQuantCache
+    ditherGif
   }
 }

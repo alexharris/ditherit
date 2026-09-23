@@ -29,13 +29,13 @@ CI runs lint and typecheck on every push (Node 22, pnpm).
 2. Selected image analyzed for palette via `useDithering.analyzePalette()` (uses RgbQuant)
 3. User configures settings in sidebar (mode, algorithm, colors, palette, pixeliness)
 4. Dithering applied via one of two paths:
-   - **Error diffusion** (`ditherMode: 'diffusion'`): RgbQuant library with 11 algorithms (Floyd-Steinberg, Atkinson, Stucki, etc.)
+   - **Error diffusion** (`ditherMode: 'diffusion'`): `kernelDiffusionDither()` in `app/utils/dithering.ts` with 11 kernels (Floyd-Steinberg, Atkinson, Stucki, etc.), in RGB or OKLab
    - **Bayer ordered** (`ditherMode: 'bayer'`): Custom implementation in `app/utils/dithering.ts` using 4x4 threshold map
 5. Results rendered to canvas, converted to PNG data URL for display/download
 
 ### Key Composables (state management, no Pinia)
 
-- **`useDithering`** — Dithering engine: mode, algorithm, color count, serpentine, pixeliness, palette. Wraps RgbQuant and Bayer dither logic.
+- **`useDithering`** — Dithering engine: mode, algorithm, color count, serpentine, pixeliness, palette. Dispatches to the dither functions in `app/utils/dithering.ts` (or the Web Worker).
 - **`usePalette`** — 16 preset palettes + custom palette CRUD. Persistence via localStorage key `ditherit_custom_palettes`.
 - **`useImageGallery`** — Multi-image management with lazy processing. Bulk ZIP download via JSZip.
 
@@ -48,12 +48,13 @@ CI runs lint and typecheck on every push (Node 22, pnpm).
 ### Utilities (`app/utils/dithering.ts`)
 
 - `bayerDither()` — Ordered dithering with 4x4 Bayer matrix
+- `kernelDiffusionDither()` — Error diffusion (all kernels, RGB/OKLab). Carried error must stay bounded — RGB clamps to 0–255, OKLab caps error at `OKLAB_MAX_ERROR` — or out-of-gamut regions bleed wrong-color blobs
 - `addPixelation()` — Block-size pixelation effect via canvas downscale/upscale
 - `getClosestColor()` — Euclidean distance color matching
 
 ## Important Dependencies
 
-- **RgbQuant** — Custom fork (`github:alexharris/RgbQuant.js#transparency`) with transparency support. Requires a postinstall patch (`scripts/patch-rgbquant.js`) to fix an undeclared `transparentPixels` variable. Vite must force-optimize this dep (configured in nuxt.config.ts).
+- **RgbQuant** — Custom fork (`github:alexharris/RgbQuant.js`). Used only for palette analysis (`sample()` + `palette()`), not for dithering. Vite must force-optimize this dep (configured in nuxt.config.ts).
 - **img-comparison-slider** — Web component, not a Vue component. Registered via `vue.compilerOptions.isCustomElement` in nuxt.config.ts.
 
 ## Code Style

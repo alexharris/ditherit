@@ -51,7 +51,19 @@ export const DIFFUSION_KERNELS: Record<string, Array<[number, number, number]>> 
   Sierra24A: [[2 / 4, 1, 0], [1 / 4, -1, 1], [1 / 4, 0, 1]],
   Fan: [[7 / 16, 1, 0], [1 / 16, -2, 1], [3 / 16, -1, 1], [5 / 16, 0, 1]],
   ShiauFan: [[4 / 8, 1, 0], [1 / 8, -2, 1], [1 / 8, -1, 1], [2 / 8, 0, 1]],
-  ShiauFan2: [[7 / 14, 1, 0], [1 / 14, -3, 1], [1 / 14, -2, 1], [2 / 14, -1, 1], [3 / 14, 0, 1]]
+  ShiauFan2: [[8 / 16, 1, 0], [1 / 16, -3, 1], [1 / 16, -2, 1], [2 / 16, -1, 1], [4 / 16, 0, 1]]
+}
+
+// Error diffusion must bound the error it carries: when a region's color is outside what the
+// palette can mix, the leftover error otherwise grows without limit and later bleeds into
+// neighbouring areas as blobs of the wrong color. RGB clamps the adjusted value to 0–255.
+// OKLab caps the accumulated error instead: clamping to the sRGB gamut would also cut off the
+// legitimate out-of-gamut compensation OKLab relies on (e.g. a large cyan error that stops a
+// red palette color from tinting a gray area).
+const OKLAB_MAX_ERROR = 0.75
+
+function capOklabError(e: number): number {
+  return Math.max(-OKLAB_MAX_ERROR, Math.min(OKLAB_MAX_ERROR, e))
 }
 
 export function getClosestColor(colors: number[][], [r2, g2, b2]: number[]): number[] {
@@ -138,7 +150,9 @@ export function bayerDither(
   }
 }
 
-// Kernel-based error diffusion dither. Used for OKLab mode (RGB mode uses q.reduce()).
+// Kernel-based error diffusion dither (Floyd-Steinberg, Atkinson, etc.).
+// Carried error is bounded (see OKLAB_MAX_ERROR). Fully transparent pixels are skipped:
+// they are not quantized and don't spread error.
 export function kernelDiffusionDither(
   ctx: CanvasRenderingContext2D,
   imageData: ImageData,
@@ -169,11 +183,12 @@ export function kernelDiffusionDither(
       for (let x = xStart; x !== xEnd; x += xStep) {
         const i = (y * width + x) * 4
         const idx = y * width + x
+        if (data[i + 3] === 0) continue
 
         const [pixL, pixA, pixB] = rgbToOklab(data[i]!, data[i + 1]!, data[i + 2]!)
-        const rawL = pixL + errL[idx]!
-        const rawA = pixA + errA[idx]!
-        const rawB = pixB + errB[idx]!
+        const rawL = pixL + capOklabError(errL[idx]!)
+        const rawA = pixA + capOklabError(errA[idx]!)
+        const rawB = pixB + capOklabError(errB[idx]!)
 
         let minDist = Infinity
         let closestIdx = 0
@@ -225,6 +240,7 @@ export function kernelDiffusionDither(
       for (let x = xStart; x !== xEnd; x += xStep) {
         const i = (y * width + x) * 4
         const idx = y * width + x
+        if (data[i + 3] === 0) continue
 
         const rawR = data[i]! + errR[idx]!
         const rawG = data[i + 1]! + errG[idx]!
@@ -253,9 +269,9 @@ export function kernelDiffusionDither(
         data[i + 1] = chosen[1]!
         data[i + 2] = chosen[2]!
 
-        const eR = rawR - chosen[0]!
-        const eG = rawG - chosen[1]!
-        const eB = rawB - chosen[2]!
+        const eR = adjR - chosen[0]!
+        const eG = adjG - chosen[1]!
+        const eB = adjB - chosen[2]!
 
         for (const [weight, kdx, kdy] of kernel) {
           const nx = x + (forward ? kdx : -kdx)
@@ -299,11 +315,12 @@ export function simple2DDither(
       for (let x = 0; x < width; x++) {
         const i = (y * width + x) * 4
         const idx = y * width + x
+        if (data[i + 3] === 0) continue
 
         const [pixL, pixA, pixB] = rgbToOklab(data[i]!, data[i + 1]!, data[i + 2]!)
-        const rawL = pixL + errL[idx]!
-        const rawA = pixA + errA[idx]!
-        const rawB = pixB + errB[idx]!
+        const rawL = pixL + capOklabError(errL[idx]!)
+        const rawA = pixA + capOklabError(errA[idx]!)
+        const rawB = pixB + capOklabError(errB[idx]!)
 
         let minDist = Infinity
         let closestIdx = 0
@@ -342,7 +359,7 @@ export function simple2DDither(
       }
     }
   } else {
-    // RGB branch — float error buffers, clamping bug fixed (error from unclamped raw value)
+    // RGB branch — float error buffers; error is measured from the clamped value
     const newPalette = palette.map((color, id) => [id, ...color])
 
     const errR = new Float64Array(width * height)
@@ -353,6 +370,7 @@ export function simple2DDither(
       for (let x = 0; x < width; x++) {
         const i = (y * width + x) * 4
         const idx = y * width + x
+        if (data[i + 3] === 0) continue
 
         const rawR = data[i]! + errR[idx]!
         const rawG = data[i + 1]! + errG[idx]!
@@ -371,9 +389,9 @@ export function simple2DDither(
         data[i + 1] = chosenG
         data[i + 2] = chosenB
 
-        const eR = rawR - chosenR
-        const eG = rawG - chosenG
-        const eB = rawB - chosenB
+        const eR = adjR - chosenR
+        const eG = adjG - chosenG
+        const eB = adjB - chosenB
 
         if (x + 1 < width) {
           errR[idx + 1]! += eR * 0.5
@@ -464,10 +482,15 @@ export function dizzyDither(
       const idx = order[k]!
       const x = idx % width
       const y = (idx / width) | 0
+      if (data[idx * 4 + 3] === 0) {
+        processed[idx] = 1
+        continue
+      }
 
-      const rawL = valL[idx]!
-      const rawA = valA[idx]!
-      const rawB = valB[idx]!
+      const [pixL, pixA, pixB] = rgbToOklab(data[idx * 4]!, data[idx * 4 + 1]!, data[idx * 4 + 2]!)
+      const rawL = pixL + capOklabError(valL[idx]! - pixL)
+      const rawA = pixA + capOklabError(valA[idx]! - pixA)
+      const rawB = pixB + capOklabError(valB[idx]! - pixB)
 
       let minDist = Infinity
       let closestIdx = 0
@@ -525,6 +548,10 @@ export function dizzyDither(
       const idx = order[k]!
       const x = idx % width
       const y = (idx / width) | 0
+      if (data[idx * 4 + 3] === 0) {
+        processed[idx] = 1
+        continue
+      }
 
       const rawR = valR[idx]!
       const rawG = valG[idx]!
@@ -544,9 +571,9 @@ export function dizzyDither(
       data[i4 + 1] = chosenG
       data[i4 + 2] = chosenB
 
-      const eR = rawR - chosenR
-      const eG = rawG - chosenG
-      const eB = rawB - chosenB
+      const eR = adjR - chosenR
+      const eG = adjG - chosenG
+      const eB = adjB - chosenB
 
       processed[idx] = 1
 

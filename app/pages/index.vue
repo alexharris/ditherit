@@ -28,8 +28,7 @@ const {
   analyzeColorCount,
   analyzePalette,
   dither,
-  ditherGif,
-  invalidateQuantCache
+  ditherGif
 } = useDithering()
 
 const {
@@ -645,7 +644,6 @@ watch(selectedImage, async (newImage) => {
 
     const img = await loadImage(newImage.originalSrc)
 
-    invalidateQuantCache()
     const colors = await analyzePalette(img)
 
     if (willDither) {
