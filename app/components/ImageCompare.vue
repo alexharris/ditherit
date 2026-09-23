@@ -2,28 +2,107 @@
 // Import the web component
 import 'img-comparison-slider'
 
-defineProps<{
+const props = defineProps<{
   originalSrc: string
   ditheredSrc: string
   alt?: string
   imageStyle?: Record<string, string>
+  // Restart both animations together (for animated GIFs while compare is visible)
+  syncAnimation?: boolean
 }>()
+
+// Browsers animate each GIF <img> on its own clock, starting when it loads, so the two
+// sides drift apart. Re-setting the same src doesn't restart a GIF, so load both into fresh
+// object URLs, wait until both are decoded, then swap them in on the same tick.
+const syncedUrls = ref<{ original: string, dithered: string } | null>(null)
+let syncToken = 0
+
+const shownOriginalSrc = computed(() => (props.syncAnimation && syncedUrls.value?.original) || props.originalSrc)
+const shownDitheredSrc = computed(() => (props.syncAnimation && syncedUrls.value?.dithered) || props.ditheredSrc)
+
+async function freshObjectUrl(src: string): Promise<string> {
+  const blob = await (await fetch(src)).blob()
+  const url = URL.createObjectURL(blob)
+  const img = new Image()
+  img.src = url
+  await img.decode()
+  return url
+}
+
+function revokeSyncedUrls() {
+  if (syncedUrls.value) {
+    URL.revokeObjectURL(syncedUrls.value.original)
+    URL.revokeObjectURL(syncedUrls.value.dithered)
+    syncedUrls.value = null
+  }
+}
+
+async function restartTogether() {
+  const token = ++syncToken
+  try {
+    const [original, dithered] = await Promise.all([freshObjectUrl(props.originalSrc), freshObjectUrl(props.ditheredSrc)])
+    if (token !== syncToken) {
+      URL.revokeObjectURL(original)
+      URL.revokeObjectURL(dithered)
+      return
+    }
+    revokeSyncedUrls()
+    syncedUrls.value = { original, dithered }
+  } catch {
+    // Fall back to the unsynced sources
+  }
+}
+
+watch(
+  [() => props.syncAnimation, () => props.originalSrc, () => props.ditheredSrc],
+  ([sync]) => {
+    if (sync) {
+      restartTogether()
+    } else {
+      syncToken++
+      revokeSyncedUrls()
+    }
+  },
+  { immediate: true }
+)
+
+onBeforeUnmount(() => {
+  syncToken++
+  revokeSyncedUrls()
+})
+
+// The slider only clips the first (original) layer; the second sits full-width underneath.
+// With transparent images — especially animated GIFs whose frames don't line up — the
+// dithered layer would show through the original, so clip it to its own side as well.
+const exposure = ref(50)
+
+function onSlide(event: Event) {
+  exposure.value = (event.target as HTMLElement & { value: number }).value
+}
 </script>
 
 <template>
   <div class="image-compare-wrapper">
-    <img-comparison-slider class="image-compare-slider">
+    <img-comparison-slider
+      class="image-compare-slider"
+      :value="exposure"
+      @slide="onSlide"
+    >
       <div slot="first" class="compare-slot">
         <img
-          :src="originalSrc"
+          :src="shownOriginalSrc"
           :alt="alt ? `Original: ${alt}` : 'Original image'"
           class="compare-image"
           :style="imageStyle"
         />
       </div>
-      <div slot="second" class="compare-slot">
+      <div
+        slot="second"
+        class="compare-slot"
+        :style="{ clipPath: `inset(0 0 0 ${exposure}%)` }"
+      >
         <img
-          :src="ditheredSrc"
+          :src="shownDitheredSrc"
           :alt="alt ? `Dithered: ${alt}` : 'Dithered image'"
           class="compare-image"
           :style="imageStyle"
@@ -51,14 +130,6 @@ defineProps<{
 }
 
 .compare-slot {
-  background-color: #fff;
-  background-image:
-    linear-gradient(45deg, #e5e5e5 25%, transparent 25%),
-    linear-gradient(-45deg, #e5e5e5 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #e5e5e5 75%),
-    linear-gradient(-45deg, transparent 75%, #e5e5e5 75%);
-  background-size: 16px 16px;
-  background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
   line-height: 0;
 }
 

@@ -957,6 +957,7 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, smo
                     :original-src="selectedImage.resizedOriginalSrc || selectedImage.originalSrc"
                     :dithered-src="selectedImage.ditheredDataUrl"
                     :alt="selectedImage.fileName"
+                    :sync-animation="showCompare && selectedImage.isAnimatedGif"
                     class="h-full w-full max-h-full max-w-full"
                     :image-style="isZoomed || pixelatedRendering ? { ...(isZoomed ? transformStyle : {}), ...(pixelatedRendering ? { imageRendering: 'pixelated' } : {}) } : undefined"
                   />
