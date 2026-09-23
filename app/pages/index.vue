@@ -2,7 +2,8 @@
 definePageMeta({ keepalive: true })
 
 import { loadImage } from '~/composables/useDithering'
-import type { GalleryImage } from '~/composables/useImageGallery'
+import type { GalleryImage, AddImagesResult } from '~/composables/useImageGallery'
+import { MAX_UPLOAD_MB } from '~/composables/useImageGallery'
 const defaultImageUrl = '/examples/quantfrog.png'
 const defaultImageUrl2 = '/examples/earth.jpg'
 const defaultImageUrl3 = '/examples/coat.gif'
@@ -146,19 +147,26 @@ function handleDragLeave(e: DragEvent) {
   isDragging.value = false
 }
 
-function warnRejectedFiles(result: { tooLarge: string[]; tooWide: string[]; largeFiles: string[] }) {
+function warnRejectedFiles(result: AddImagesResult) {
   if (result.tooLarge.length > 0) {
     toast.add({
       title: 'File too large',
-      description: `${result.tooLarge.join(', ')} exceeded the 2.5 MB limit and was not added.`,
+      description: `${result.tooLarge.join(', ')} exceeded the ${MAX_UPLOAD_MB} MB limit and was not added.`,
       color: 'error'
     })
   }
-  if (result.tooWide.length > 0) {
+  if (result.failed.length > 0) {
     toast.add({
-      title: 'Image too large',
-      description: `${result.tooWide.join(', ')} exceeds 4000px and was not added.`,
+      title: 'Could not load image',
+      description: `${result.failed.join(', ')} could not be decoded. It may be too large for this device.`,
       color: 'error'
+    })
+  }
+  for (const d of result.downscaled) {
+    toast.add({
+      title: 'Image downscaled',
+      description: `${d.name} was downscaled from ${d.from[0]}×${d.from[1]} to ${d.to[0]}×${d.to[1]}.`,
+      color: 'info'
     })
   }
   if (result.largeFiles.length > 0) {
@@ -171,6 +179,8 @@ function warnRejectedFiles(result: { tooLarge: string[]; tooWide: string[]; larg
 }
 
 function checkAndPromptResize(image: GalleryImage): boolean {
+  // Already shrunk on upload — don't prompt a second time
+  if (image.wasDownscaled) return false
   if (Math.max(image.naturalWidth, image.naturalHeight) > 2500) {
     if (ditherTimeout) clearTimeout(ditherTimeout)
     resizeModalImage.value = image

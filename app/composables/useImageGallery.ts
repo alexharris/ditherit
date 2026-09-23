@@ -24,7 +24,24 @@ export interface GalleryImage {
   gifFrames: GifFrame[] | null
   gifFrameCount: number | null
   processingProgress: number | null // 0–1 while dithering GIF frames
+  wasDownscaled: boolean // shrunk to MAX_EDGE on upload
 }
+
+export interface DownscaledImage {
+  name: string
+  from: [number, number]
+  to: [number, number]
+}
+
+export interface AddImagesResult {
+  tooLarge: string[]
+  failed: string[]
+  downscaled: DownscaledImage[]
+  largeFiles: string[]
+  added: number
+}
+
+export const MAX_UPLOAD_MB = 100
 
 // Module-level state — shared across all callers
 const images = ref<GalleryImage[]>([])
@@ -47,8 +64,8 @@ export function useImageGallery() {
     return `img-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
   }
 
-  const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50 MB
-  const MAX_DIMENSION = 10000
+  const MAX_FILE_SIZE = MAX_UPLOAD_MB * 1024 * 1024 // guards against decode OOM
+  const MAX_EDGE = 4096 // larger images are downscaled on upload
 
   function readFileAsDataURL(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -68,7 +85,63 @@ export function useImageGallery() {
     })
   }
 
-  async function decodeGifFrames(file: File): Promise<GifFrame[] | null> {
+  function blobToDataURL(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = (e) => resolve(e.target?.result as string)
+      reader.onerror = () => reject(new Error('Failed to read blob'))
+      reader.readAsDataURL(blob)
+    })
+  }
+
+  function loadImageElement(src: string): Promise<HTMLImageElement> {
+    return new Promise((resolve, reject) => {
+      const img = new Image()
+      img.onload = () => resolve(img)
+      img.onerror = () => reject(new Error('Failed to load image'))
+      img.src = src
+    })
+  }
+
+  // Downscale by repeated halving, then a final high-quality step to the target size.
+  // Halving avoids the aliasing a single large drawImage downscale produces.
+  async function downscaleImage(src: string, targetWidth: number, targetHeight: number, mimeType: string): Promise<string> {
+    const img = await loadImageElement(src)
+    let source: CanvasImageSource = img
+    let w = img.naturalWidth
+    let h = img.naturalHeight
+
+    while (w / 2 >= targetWidth * 2 && h / 2 >= targetHeight * 2) {
+      w = Math.round(w / 2)
+      h = Math.round(h / 2)
+      const step = document.createElement('canvas')
+      step.width = w
+      step.height = h
+      const stepCtx = step.getContext('2d')!
+      stepCtx.imageSmoothingQuality = 'high'
+      stepCtx.drawImage(source, 0, 0, w, h)
+      source = step
+    }
+
+    const canvas = document.createElement('canvas')
+    canvas.width = targetWidth
+    canvas.height = targetHeight
+    const ctx = canvas.getContext('2d')!
+    ctx.imageSmoothingQuality = 'high'
+    ctx.drawImage(source, 0, 0, targetWidth, targetHeight)
+
+    const isJpeg = mimeType === 'image/jpeg'
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        b => b ? resolve(b) : reject(new Error('Failed to encode image')),
+        isJpeg ? 'image/jpeg' : 'image/png',
+        isJpeg ? 0.92 : undefined
+      )
+    })
+    return blobToDataURL(blob)
+  }
+
+  async function decodeGifFrames(file: File, scale = 1): Promise<GifFrame[] | null> {
     try {
       const { parseGIF, decompressFrames } = await import('gifuct-js')
       const buffer = await readFileAsArrayBuffer(file)
@@ -84,6 +157,18 @@ export function useImageGallery() {
       canvas.width = fullWidth
       canvas.height = fullHeight
       const ctx = canvas.getContext('2d')!
+
+      // Output canvas — composited frames are drawn here at the scaled size.
+      // Compositing itself stays at full resolution so disposal methods work unchanged.
+      const outWidth = Math.max(1, Math.round(fullWidth * scale))
+      const outHeight = Math.max(1, Math.round(fullHeight * scale))
+      const outCanvas = scale < 1 ? document.createElement('canvas') : null
+      const outCtx = outCanvas?.getContext('2d') ?? null
+      if (outCanvas && outCtx) {
+        outCanvas.width = outWidth
+        outCanvas.height = outHeight
+        outCtx.imageSmoothingQuality = 'high'
+      }
 
       const result: GifFrame[] = []
       let previousSnapshot: ImageData | null = null
@@ -103,8 +188,16 @@ export function useImageGallery() {
         ctx.drawImage(patchCanvas, frame.dims.left, frame.dims.top)
 
         // Capture the fully composited frame
+        let imageData: ImageData
+        if (outCanvas && outCtx) {
+          outCtx.clearRect(0, 0, outWidth, outHeight)
+          outCtx.drawImage(canvas, 0, 0, outWidth, outHeight)
+          imageData = outCtx.getImageData(0, 0, outWidth, outHeight)
+        } else {
+          imageData = ctx.getImageData(0, 0, fullWidth, fullHeight)
+        }
         result.push({
-          imageData: ctx.getImageData(0, 0, fullWidth, fullHeight),
+          imageData,
           delay: frame.delay // gifuct-js already returns ms
         })
 
@@ -139,12 +232,13 @@ export function useImageGallery() {
     })
   }
 
-  async function addImages(files: FileList | File[]): Promise<{ tooLarge: string[]; tooWide: string[]; largeFiles: string[]; added: number }> {
+  async function addImages(files: FileList | File[]): Promise<AddImagesResult> {
     const isMobile = import.meta.client && window.innerWidth < 1024
     const LARGE_FILE_THRESHOLD = isMobile ? 1 * 1024 * 1024 : 2 * 1024 * 1024
     const fileArray = Array.from(files).filter(f => f.type.startsWith('image/'))
     const tooLarge: string[] = []
-    const tooWide: string[] = []
+    const failed: string[] = []
+    const downscaled: DownscaledImage[] = []
     const largeFiles: string[] = []
     let added = 0
 
@@ -154,25 +248,48 @@ export function useImageGallery() {
         continue
       }
 
-      const dataUrl = await readFileAsDataURL(file)
-      const { width, height } = await getImageDimensions(dataUrl)
-
-      if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
-        tooWide.push(file.name)
-        continue
-      }
-
+      let dataUrl: string
+      let width: number
+      let height: number
       let isAnimatedGif = false
       let gifFrames: GifFrame[] | null = null
       let gifFrameCount: number | null = null
+      let wasDownscaled = false
 
-      if (file.type === 'image/gif') {
-        const frames = await decodeGifFrames(file)
-        if (frames) {
-          isAnimatedGif = true
-          gifFrames = frames
-          gifFrameCount = frames.length
+      // Object URL avoids building a huge base64 string just to read dimensions
+      const objectUrl = URL.createObjectURL(file)
+      try {
+        const dims = await getImageDimensions(objectUrl)
+        const longEdge = Math.max(dims.width, dims.height)
+        const scale = longEdge > MAX_EDGE ? MAX_EDGE / longEdge : 1
+        width = Math.max(1, Math.round(dims.width * scale))
+        height = Math.max(1, Math.round(dims.height * scale))
+
+        if (file.type === 'image/gif') {
+          const frames = await decodeGifFrames(file, scale)
+          if (frames) {
+            isAnimatedGif = true
+            gifFrames = frames
+            gifFrameCount = frames.length
+          }
         }
+
+        if (scale < 1 && !isAnimatedGif) {
+          dataUrl = await downscaleImage(objectUrl, width, height, file.type)
+        } else {
+          dataUrl = await readFileAsDataURL(file)
+        }
+
+        if (scale < 1) {
+          wasDownscaled = true
+          downscaled.push({ name: file.name, from: [dims.width, dims.height], to: [width, height] })
+        }
+      } catch {
+        // Decode can fail for very large images (e.g. iOS Safari memory limits)
+        failed.push(file.name)
+        continue
+      } finally {
+        URL.revokeObjectURL(objectUrl)
       }
 
       const newImage: GalleryImage = {
@@ -192,11 +309,12 @@ export function useImageGallery() {
         isAnimatedGif,
         gifFrames,
         gifFrameCount,
-        processingProgress: null
+        processingProgress: null,
+        wasDownscaled
       }
       images.value.push(newImage)
 
-      if (file.size > LARGE_FILE_THRESHOLD || width * height > 4_000_000) {
+      if (!wasDownscaled && (file.size > LARGE_FILE_THRESHOLD || width * height > 4_000_000)) {
         largeFiles.push(file.name)
       }
 
@@ -208,7 +326,7 @@ export function useImageGallery() {
       }
     }
 
-    return { tooLarge, tooWide, largeFiles, added }
+    return { tooLarge, failed, downscaled, largeFiles, added }
   }
 
   async function addImageFromUrl(url: string, fileName: string) {
