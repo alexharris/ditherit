@@ -4,9 +4,11 @@ definePageMeta({ keepalive: true })
 import { loadImage } from '~/composables/useDithering'
 import type { GalleryImage, AddImagesResult } from '~/composables/useImageGallery'
 import { MAX_UPLOAD_MB } from '~/composables/useImageGallery'
-const defaultImageUrl = '/examples/quantfrog.png'
-const defaultImageUrl2 = '/examples/earth.jpg'
-const defaultImageUrl3 = '/examples/coat.gif'
+const DEFAULT_IMAGES = ['chart.jpg', 'earth.png', 'frog.gif', 'snoopy.gif']
+
+function addDefaultImages() {
+  for (const fileName of DEFAULT_IMAGES) addImageFromUrl(`/examples/${fileName}`, fileName)
+}
 
 const {
   isProcessing,
@@ -64,7 +66,7 @@ const colorMode = useColorMode()
 const fileInputRef = ref<HTMLInputElement>()
 const canvasRef = ref<HTMLCanvasElement>()
 
-const isDefaultImage = computed(() => images.value.length <= 3 && images.value.every(img => img.fileName === 'quantfrog.png' || img.fileName === 'earth.jpg' || img.fileName === 'coat.gif'))
+const isDefaultImage = computed(() => images.value.length <= DEFAULT_IMAGES.length && images.value.every(img => DEFAULT_IMAGES.includes(img.fileName)))
 
 const isDragging = ref(false)
 const isIntro = ref(true)
@@ -585,9 +587,7 @@ async function handleDownload(format: 'png' | 'jpg' | 'svg' | 'gif') {
 // Load default image on startup (auto-dither triggers via settings watcher)
 onMounted(() => {
   if (!hasImages.value) {
-    addImageFromUrl(defaultImageUrl, 'quantfrog.png')
-    addImageFromUrl(defaultImageUrl2, 'earth.jpg')
-    addImageFromUrl(defaultImageUrl3, 'coat.gif')
+    addDefaultImages()
   }
   document.addEventListener('paste', handlePaste)
   const stored = localStorage.getItem('ditherit_auto_apply')
@@ -604,13 +604,11 @@ onUnmounted(() => {
   if (imageContainerRef.value) detachListeners(imageContainerRef.value)
 })
 
-// Reload the frog when the last image is removed
+// Reload the default images when the last image is removed
 watch(hasImages, (has) => {
   if (!has) {
     isIntro.value = true
-    addImageFromUrl(defaultImageUrl, 'quantfrog.png')
-    addImageFromUrl(defaultImageUrl2, 'earth.jpg')
-    addImageFromUrl(defaultImageUrl3, 'coat.gif')
+    addDefaultImages()
   }
 })
 
