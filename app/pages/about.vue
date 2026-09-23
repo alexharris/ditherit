@@ -25,8 +25,8 @@ const featureCards = [
   },
   {
     icon: '🕹️',
-    title: 'Pixeliness Control',
-    description: 'Increase pixel chunkiness for pixel art effects.',
+    title: 'Pixel Scale',
+    description: 'Make the pixels bigger for a chunky, pixel art look.',
   },
   {
     icon: '📁',
