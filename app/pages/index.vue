@@ -922,7 +922,7 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, smo
                       label="Select"
                       size="sm"
                       color="primary"
-                      variant="subtle"
+                      variant="soft"
                       class="bg-ditherit-tint"
                       @click="triggerFileInput"
                     />
