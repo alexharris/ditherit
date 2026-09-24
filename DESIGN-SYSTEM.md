@@ -10,6 +10,7 @@ Reference for visual language, component usage rules, and design decisions. Also
 | Token | Value | Usage |
 |-------|-------|-------|
 | `--color-ditherit` | `#C53030` | Logo, spinners, drag overlay, resize handles, active swatch rings, primary CTAs |
+| `--color-ditherit-tint` | 10% brand red over white (`gray-800` in dark) | Opaque tinted surfaces: subtle primary buttons (`class="bg-ditherit-tint"`), colored cards |
 
 Use `text-ditherit`, `border-ditherit`, `ring-ditherit`, `bg-ditherit` for all brand red. Do not use `red-500` or `red-700` for brand purposes — those are reserved for semantic error states only.
 
@@ -152,7 +153,7 @@ Always use `UCard`. Two variants:
 
 **Colored/semantic** (`variant="soft"` + custom background) — for sidebar widgets and contextual callouts:
 ```vue
-<UCard variant="soft" :ui="{ root: 'bg-red-50 dark:bg-red-950', body: 'p-4 sm:p-4' }">
+<UCard variant="soft" :ui="{ root: 'bg-ditherit-tint', body: 'p-4 sm:p-4' }">
   <p class="text-sm font-medium text-highlighted">📋 Title with emoji</p>
   <p class="text-sm text-gray-800 dark:text-gray-100">Body text</p>
 </UCard>

@@ -915,14 +915,15 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, smo
               <div class="flex flex-1 min-h-0 w-full items-center justify-center">
                 <template v-if="isIntro">
                   <!-- Desktop: drop/paste hint -->
-                  <div class="hidden lg:flex items-center gap-3 rounded-lg bg-white px-4 py-2.5 text-sm text-red-700 ring-1 ring-red-200 dark:bg-gray-800 dark:text-red-300 dark:ring-red-800">
+                  <div class="hidden lg:flex items-center gap-3 rounded-lg bg-white px-4 py-2.5 text-sm text-primary ring-1 ring-ditherit/30 dark:bg-gray-800 dark:ring-ditherit/50">
                     <span>✨ Drop or paste images here, or</span>
                     <UButton
                       icon="i-lucide-upload"
                       label="Select"
                       size="sm"
-                      color="error"
+                      color="primary"
                       variant="subtle"
+                      class="bg-ditherit-tint"
                       @click="triggerFileInput"
                     />
                   </div>

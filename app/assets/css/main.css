@@ -42,6 +42,7 @@ html, body {
   --font-sans: 'Public Sans', sans-serif;
 
   --color-ditherit: #C53030;
+  --color-ditherit-tint: var(--ditherit-tint);
 
   --color-green-50: #EFFDF5;
   --color-green-100: #D9FBE8;
@@ -71,4 +72,12 @@ html, body {
   --ui-color-primary-800: #5C1111;
   --ui-color-primary-900: #3D0B0B;
   --ui-color-primary-950: #240606;
+
+  /* Opaque brand tint: 10% primary over the surface it sits on (sRGB mix
+     matches how a translucent bg-primary/10 would composite). */
+  --ditherit-tint: color-mix(in srgb, var(--ui-color-primary-500) 10%, white);
+}
+
+.dark {
+  --ditherit-tint: color-mix(in srgb, var(--ui-color-primary-400) 10%, var(--color-gray-800));
 }

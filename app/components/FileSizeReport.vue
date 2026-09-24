@@ -83,7 +83,7 @@ const inputFormat = computed(() => {
           cy="21"
           r="15.91549430918954"
           fill="transparent"
-          :stroke="isSmaller ? '#22c55e' : '#ef4444'"
+          :style="{ stroke: isSmaller ? '#22c55e' : 'var(--ui-primary)' }"
           stroke-width="3"
           :stroke-dasharray="strokeDashArray"
           stroke-dashoffset="25"
@@ -117,7 +117,7 @@ const inputFormat = computed(() => {
         <span
           class="font-medium"
           :class="ditheredFileSize
-            ? (isSmaller ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400')
+            ? (isSmaller ? 'text-green-600 dark:text-green-400' : 'text-primary')
             : 'text-gray-100 dark:text-gray-400'"
         >
           {{ ditheredFileSize ? `${ditheredKb} KB` : '— KB' }}

@@ -120,8 +120,8 @@ function onSlide(event: Event) {
 }
 
 .image-compare-slider {
-  --divider-color: rgb(239, 68, 68);
-  --default-handle-color: rgb(239, 68, 68);
+  --divider-color: var(--ui-primary);
+  --default-handle-color: var(--ui-primary);
   --default-handle-width: 50px;
   --divider-width: 3px;
   overflow: hidden;
@@ -134,7 +134,7 @@ function onSlide(event: Event) {
 }
 
 .image-compare-slider:focus {
-  outline: 3px solid #C53030;
+  outline: 3px solid var(--ui-primary);
   outline-offset: 2px;
 }
 

@@ -383,7 +383,7 @@ const inputNumberValue = ref(16)
             Colored / Semantic — variant="soft" + custom bg
           </p>
           <div class="flex flex-col gap-3 max-w-xs">
-            <UCard variant="soft" :ui="{ root: 'bg-red-50 dark:bg-red-950', body: 'p-4 sm:p-4' }">
+            <UCard variant="soft" :ui="{ root: 'bg-ditherit-tint', body: 'p-4 sm:p-4' }">
               <p class="mb-1 text-sm font-medium text-highlighted">📋 Improve Dither it!</p>
               <p class="text-sm text-gray-500 dark:text-gray-400">Found a bug? Have an idea for a feature?</p>
             </UCard>
@@ -394,7 +394,7 @@ const inputNumberValue = ref(16)
             </UCard>
           </div>
           <div class="mt-3 space-y-1">
-            <code class="block text-xs text-gray-500">&lt;UCard variant="soft" :ui="{ root: 'bg-red-50 dark:bg-red-950', body: 'p-4 sm:p-4' }"&gt;</code>
+            <code class="block text-xs text-gray-500">&lt;UCard variant="soft" :ui="{ root: 'bg-ditherit-tint', body: 'p-4 sm:p-4' }"&gt;</code>
             <code class="block text-xs text-gray-500">Title: text-sm font-medium text-highlighted + emoji prefix (required)</code>
             <code class="block text-xs text-gray-500">Body: text-sm text-gray-500 dark:text-gray-400</code>
           </div>

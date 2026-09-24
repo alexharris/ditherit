@@ -42,7 +42,7 @@ async function handleSubmit(event: Event) {
   </form>
 
   <UModal v-model:open="isModalOpen">
-    <UCard variant="soft" :ui="{ root: 'bg-red-50 dark:bg-red-950 shadow-sm', body: 'p-4 sm:p-4' }">
+    <UCard variant="soft" :ui="{ root: 'bg-ditherit-tint shadow-sm', body: 'p-4 sm:p-4' }">
       <h2 class="pb-2 text-sm font-medium text-highlighted">📋 Improve Dither it!</h2>
       <p class="pb-2 text-sm text-gray-800 dark:text-gray-100">Found a bug? Have an idea for a feature? Let me know!</p>
       <span class="text-sm font-medium text-blue-600 underline text-highlighted cursor-pointer transition-colors">
