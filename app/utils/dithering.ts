@@ -164,7 +164,28 @@ export function kernelDiffusionDither(
   smoothDownscale = false
 ) {
   const { width, height } = imageData
-  const data = imageData.data
+  kernelDiffusePixels(imageData.data, width, height, palette, kernelName, serpentine, colorSpace)
+
+  ctx.putImageData(imageData, 0, 0)
+
+  if (blockSize > 1) {
+    addPixelation(ctx, ctx.canvas, width, height, blockSize, smoothDownscale)
+  }
+}
+
+// DOM-free core of kernelDiffusionDither, shared with the dither Web Worker.
+// `palette` must be a plain array (not a Vue proxy) — it is read once per pixel.
+export function kernelDiffusePixels(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  palette: number[][],
+  kernelName: string,
+  serpentine: boolean,
+  colorSpace: 'rgb' | 'oklab',
+  onProgress?: (v: number) => void
+) {
+  const reportEvery = Math.max(1, Math.floor(height / 10))
   const kernel = DIFFUSION_KERNELS[kernelName] ?? DIFFUSION_KERNELS['FloydSteinberg']!
 
   if (colorSpace === 'oklab') {
@@ -224,6 +245,7 @@ export function kernelDiffusionDither(
           errB[nidx]! += eB * weight
         }
       }
+      if (onProgress && y % reportEvery === 0) onProgress((y + 1) / height)
     }
   } else {
     // RGB branch: Rec. 709 perceptual nearest-color, float error buffers
@@ -283,13 +305,8 @@ export function kernelDiffusionDither(
           errBuf[nidx]! += eB * weight
         }
       }
+      if (onProgress && y % reportEvery === 0) onProgress((y + 1) / height)
     }
-  }
-
-  ctx.putImageData(imageData, 0, 0)
-
-  if (blockSize > 1) {
-    addPixelation(ctx, ctx.canvas, width, height, blockSize, smoothDownscale)
   }
 }
 

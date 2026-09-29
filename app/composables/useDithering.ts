@@ -126,8 +126,11 @@ const sizeValid = ref(true)
 const analyzeColorCount = ref(8)
 const autoApply = ref(true)
 
-// Bayer Web Worker (lazily created)
+// Dither Web Worker (lazily created)
 let worker: Worker | null = null
+
+// The worker is considered stuck if it goes this long without reporting progress
+const WORKER_IDLE_TIMEOUT_MS = 10_000
 
 export function useDithering() {
   const toast = useToast()
@@ -140,6 +143,87 @@ export function useDithering() {
       )
     }
     return worker
+  }
+
+  // Plain copy of the palette: a Vue proxy can't be posted to the worker (DataCloneError),
+  // and reading it through the proxy once per pixel is slow on the main thread too.
+  function plainPalette(colors: number[][]): number[][] {
+    return colors.map(c => [...c])
+  }
+
+  // Which worker mode handles the current settings, or null for main-thread-only algorithms
+  function currentWorkerMode(): string | null {
+    if (ditherMode.value !== 'diffusion') return ditherMode.value
+    if (algorithm.value === 'Simple2D' || algorithm.value === 'Dizzy') return null
+    return 'diffusion'
+  }
+
+  function ditherInWorker(
+    mode: string,
+    imageData: ImageData,
+    paletteToUse: number[][],
+    onProgress?: (v: number) => void
+  ): Promise<ImageData> {
+    const { width, height } = imageData
+    return new Promise((resolve, reject) => {
+      const w = getWorker()
+      let timeoutId: ReturnType<typeof setTimeout>
+      const armTimeout = () => {
+        clearTimeout(timeoutId)
+        timeoutId = setTimeout(() => {
+          // Kill the stuck job so it doesn't hold up the next message
+          w.terminate()
+          if (worker === w) worker = null
+          reject(new Error('Dither worker timeout'))
+        }, WORKER_IDLE_TIMEOUT_MS)
+      }
+      armTimeout()
+      w.onmessage = (e) => {
+        if (e.data.type === 'progress') {
+          armTimeout()
+          onProgress?.(e.data.value)
+          return
+        }
+        clearTimeout(timeoutId)
+        resolve(new ImageData(new Uint8ClampedArray(e.data.pixels), e.data.width, e.data.height))
+      }
+      w.onerror = (e) => {
+        clearTimeout(timeoutId)
+        reject(e)
+      }
+      const msg: Record<string, unknown> = {
+        mode,
+        pixels: imageData.data.buffer,
+        width,
+        height,
+        palette: paletteToUse,
+        blockSize: pixeliness.value,
+        colorSpace: colorSpace.value,
+        algorithm: algorithm.value,
+        serpentine: serpentine.value
+      }
+      if (mode === 'bayer') msg.bayerSize = bayerSize.value
+      w.postMessage(msg, [imageData.data.buffer])
+    })
+  }
+
+  // Main-thread dither of the ctx's current contents. Pixelation is applied separately by the
+  // callers after upscaling, so blockSize is always 1 here.
+  function ditherOnMainThread(ctx: CanvasRenderingContext2D, width: number, height: number, paletteToUse: number[][]) {
+    const imageData = ctx.getImageData(0, 0, width, height)
+    if (ditherMode.value === 'bayer') {
+      bayerDither(ctx, imageData, paletteToUse, 1, bayerSize.value, smoothPixels.value)
+    } else if (ditherMode.value === 'blue-noise') {
+      blueNoiseDither(ctx, imageData, paletteToUse, 1, smoothPixels.value)
+    } else if (ditherMode.value === 'riemersma') {
+      riemersmaDither(ctx, imageData, paletteToUse, 1, colorSpace.value, smoothPixels.value)
+    } else if (algorithm.value === 'Simple2D') {
+      simple2DDither(ctx, imageData, paletteToUse, 1, colorSpace.value, smoothPixels.value)
+    } else if (algorithm.value === 'Dizzy') {
+      dizzyDither(ctx, imageData, paletteToUse, 1, colorSpace.value, smoothPixels.value)
+    } else {
+      kernelDiffusionDither(ctx, imageData, paletteToUse, 1, algorithm.value, serpentine.value, colorSpace.value, smoothPixels.value)
+    }
   }
 
   const rgbQuantOptions = computed<RgbQuantOptions>(() => ({
@@ -195,48 +279,15 @@ export function useDithering() {
       targetCanvas.height = ditherHeight
       ctx.drawImage(sourceImage, 0, 0, ditherWidth, ditherHeight)
 
-      if (ditherMode.value !== 'diffusion') {
-        // --- Ordered/noise path: offload to Web Worker with main-thread fallback ---
-        const paletteToUse = palette.value.length > 0 ? palette.value : await analyzePalette(sourceImage)
+      const paletteToUse = plainPalette(palette.value.length > 0 ? palette.value : await analyzePalette(sourceImage))
+      const workerMode = currentWorkerMode()
 
+      if (workerMode) {
+        // --- Offload to Web Worker, with main-thread fallback ---
         try {
           const imageData = ctx.getImageData(0, 0, ditherWidth, ditherHeight)
-          const result = await new Promise<{ pixels: ArrayBuffer; width: number; height: number }>((resolve, reject) => {
-            const w = getWorker()
-            const timeoutId = setTimeout(() => reject(new Error('Dither worker timeout')), 10_000)
-            w.onmessage = (e) => {
-              if (e.data.type === 'progress') {
-                onProgress?.(e.data.value)
-                return
-              }
-              clearTimeout(timeoutId)
-              resolve(e.data)
-            }
-            w.onerror = (e) => {
-              clearTimeout(timeoutId)
-              reject(e)
-            }
-            const msg: Record<string, unknown> = {
-              mode: ditherMode.value,
-              pixels: imageData.data.buffer,
-              width: ditherWidth,
-              height: ditherHeight,
-              palette: paletteToUse,
-              blockSize: pixeliness.value,
-              colorSpace: colorSpace.value
-            }
-            if (ditherMode.value === 'bayer') msg.bayerSize = bayerSize.value
-            w.postMessage(msg, [imageData.data.buffer])
-          })
-
-          const processedData = new ImageData(
-            new Uint8ClampedArray(result.pixels),
-            result.width,
-            result.height
-          )
-          ctx.putImageData(processedData, 0, 0)
+          ctx.putImageData(await ditherInWorker(workerMode, imageData, paletteToUse, onProgress), 0, 0)
         } catch (err) {
-          // Worker failed — fall back to main-thread dithering
           const isTimeout = err instanceof Error && err.message === 'Dither worker timeout'
           if (isTimeout) {
             toast.add({
@@ -246,31 +297,11 @@ export function useDithering() {
             })
           }
           ctx.drawImage(sourceImage, 0, 0, ditherWidth, ditherHeight)
-          const freshImageData = ctx.getImageData(0, 0, ditherWidth, ditherHeight)
-          if (ditherMode.value === 'bayer') {
-            bayerDither(ctx, freshImageData, paletteToUse, pixeliness.value, bayerSize.value, smoothPixels.value)
-          } else if (ditherMode.value === 'blue-noise') {
-            blueNoiseDither(ctx, freshImageData, paletteToUse, pixeliness.value, smoothPixels.value)
-          } else {
-            riemersmaDither(ctx, freshImageData, paletteToUse, pixeliness.value, colorSpace.value, smoothPixels.value)
-          }
+          ditherOnMainThread(ctx, ditherWidth, ditherHeight, paletteToUse)
         }
-      } else if (algorithm.value === 'Simple2D') {
-        // --- Simple 2D ---
-        const paletteToUse = palette.value.length > 0 ? palette.value : await analyzePalette(sourceImage)
-        const imageData = ctx.getImageData(0, 0, ditherWidth, ditherHeight)
-        simple2DDither(ctx, imageData, paletteToUse, pixeliness.value, colorSpace.value, smoothPixels.value)
-      } else if (algorithm.value === 'Dizzy') {
-        // --- Dizzy ---
-        const paletteToUse = palette.value.length > 0 ? palette.value : await analyzePalette(sourceImage)
-        const imageData = ctx.getImageData(0, 0, ditherWidth, ditherHeight)
-        dizzyDither(ctx, imageData, paletteToUse, pixeliness.value, colorSpace.value, smoothPixels.value)
       } else {
-        // --- Kernel error diffusion (Floyd-Steinberg, Atkinson, etc.) in RGB or OKLab ---
-        // Pixelation is applied once below, after upscaling, so pass blockSize 1 here.
-        const paletteToUse = palette.value.length > 0 ? palette.value : await analyzePalette(sourceImage)
-        const imageData = ctx.getImageData(0, 0, ditherWidth, ditherHeight)
-        kernelDiffusionDither(ctx, imageData, paletteToUse, 1, algorithm.value, serpentine.value, colorSpace.value, smoothPixels.value)
+        // --- Simple 2D / Dizzy: main thread only ---
+        ditherOnMainThread(ctx, ditherWidth, ditherHeight, paletteToUse)
       }
 
       // Upscale dithered result to full resolution with nearest-neighbor interpolation
@@ -361,6 +392,8 @@ export function useDithering() {
         q.sample(scratchCanvas)
         paletteToUse = q.palette(true)
       }
+      paletteToUse = plainPalette(paletteToUse)
+      const workerMode = currentWorkerMode()
 
       // Only enable transparency encoding if the GIF actually has transparent pixels.
       // gif.js designates its closest palette entry to the transparent color — so setting it
@@ -393,46 +426,19 @@ export function useDithering() {
         sourceCtx.putImageData(imageData, 0, 0)
         ctx.drawImage(sourceCanvas, 0, 0, ditherWidth, ditherHeight)
 
-        if (ditherMode.value !== 'diffusion') {
-          const scaledImageData = ctx.getImageData(0, 0, ditherWidth, ditherHeight)
-          const buf = scaledImageData.data.buffer.slice(0) // copy — don't transfer the original
+        if (workerMode) {
           try {
-            const result = await new Promise<{ pixels: ArrayBuffer; width: number; height: number }>((resolve, reject) => {
-              const w = getWorker()
-              const timeoutId = setTimeout(() => reject(new Error('Dither worker timeout')), 10_000)
-              w.onmessage = (e: MessageEvent) => {
-                if (e.data.type === 'progress') return
-                clearTimeout(timeoutId)
-                resolve(e.data)
-              }
-              w.onerror = (e: ErrorEvent) => { clearTimeout(timeoutId); reject(e) }
-              const msg: Record<string, unknown> = { mode: ditherMode.value, pixels: buf, width: ditherWidth, height: ditherHeight, palette: paletteToUse, blockSize: pixeliness.value, colorSpace: colorSpace.value }
-              if (ditherMode.value === 'bayer') msg.bayerSize = bayerSize.value
-              w.postMessage(msg, [buf])
-            })
-            ctx.putImageData(new ImageData(new Uint8ClampedArray(result.pixels), result.width, result.height), 0, 0)
+            const scaledImageData = ctx.getImageData(0, 0, ditherWidth, ditherHeight)
+            ctx.putImageData(await ditherInWorker(workerMode, scaledImageData, paletteToUse), 0, 0)
           } catch {
             // Worker failed — fall back to main-thread dithering for this frame
+            ctx.clearRect(0, 0, ditherWidth, ditherHeight)
             sourceCtx.putImageData(imageData, 0, 0)
             ctx.drawImage(sourceCanvas, 0, 0, ditherWidth, ditherHeight)
-            const freshImageData = ctx.getImageData(0, 0, ditherWidth, ditherHeight)
-            if (ditherMode.value === 'bayer') {
-              bayerDither(ctx, freshImageData, paletteToUse, 1, bayerSize.value, smoothPixels.value)
-            } else if (ditherMode.value === 'blue-noise') {
-              blueNoiseDither(ctx, freshImageData, paletteToUse, 1, smoothPixels.value)
-            } else {
-              riemersmaDither(ctx, freshImageData, paletteToUse, 1, colorSpace.value, smoothPixels.value)
-            }
+            ditherOnMainThread(ctx, ditherWidth, ditherHeight, paletteToUse)
           }
-        } else if (algorithm.value === 'Simple2D') {
-          const id = ctx.getImageData(0, 0, ditherWidth, ditherHeight)
-          simple2DDither(ctx, id, paletteToUse, 1, colorSpace.value, smoothPixels.value)
-        } else if (algorithm.value === 'Dizzy') {
-          const id = ctx.getImageData(0, 0, ditherWidth, ditherHeight)
-          dizzyDither(ctx, id, paletteToUse, 1, colorSpace.value, smoothPixels.value)
         } else {
-          const id = ctx.getImageData(0, 0, ditherWidth, ditherHeight)
-          kernelDiffusionDither(ctx, id, paletteToUse, 1, algorithm.value, serpentine.value, colorSpace.value, smoothPixels.value)
+          ditherOnMainThread(ctx, ditherWidth, ditherHeight, paletteToUse)
         }
 
         // Upscale dithered result to final dimensions with nearest-neighbor interpolation
