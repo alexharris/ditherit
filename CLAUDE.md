@@ -49,6 +49,7 @@ CI runs lint and typecheck on every push (Node 22, pnpm).
 
 - `bayerDither()` — Ordered dithering with 4x4 Bayer matrix
 - `kernelDiffusionDither()` — Error diffusion (all kernels, RGB/OKLab). Carried error must stay bounded — RGB clamps to 0–255, OKLab caps error at `OKLAB_MAX_ERROR` — or out-of-gamut regions bleed wrong-color blobs
+- `knollPatternDither()` — Thomas Knoll's pattern dithering (`ditherMode: 'pattern'`): ordered dithering for irregular palettes. Builds a luminance-sorted "mixing plan" per color in linear light; the Bayer or blue-noise threshold picks the entry. Plans are cached per 6-bit color
 - `addPixelation()` — Block-size pixelation effect via canvas downscale/upscale
 - `getClosestColor()` — Euclidean distance color matching
 

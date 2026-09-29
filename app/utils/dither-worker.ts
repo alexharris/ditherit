@@ -2,10 +2,10 @@
 // Bayer/BlueNoise/Riemersma duplicate minimal logic from dithering.ts; diffusion imports its DOM-free core
 
 import { BLUE_NOISE_TEXTURE } from './blue-noise-texture'
-import { kernelDiffusePixels } from './dithering'
+import { kernelDiffusePixels, knollPatternPixels, type KnollPattern } from './dithering'
 
 type BayerSize = 2 | 4 | 8 | 16
-type WorkerMode = 'bayer' | 'blue-noise' | 'riemersma' | 'diffusion'
+type WorkerMode = 'bayer' | 'pattern' | 'blue-noise' | 'riemersma' | 'diffusion'
 type ColorSpace = 'rgb' | 'oklab'
 
 // Inlined OKLab math (Björn Ottosson, 2020) — no imports in workers
@@ -257,19 +257,22 @@ interface DitherMessage {
   palette: number[][]
   blockSize: number
   bayerSize?: BayerSize
+  knollPattern?: KnollPattern
   colorSpace?: ColorSpace
   algorithm?: string
   serpentine?: boolean
 }
 
 self.onmessage = function (e: MessageEvent<DitherMessage>) {
-  const { mode, pixels, width, height, palette, bayerSize, colorSpace, algorithm, serpentine } = e.data
+  const { mode, pixels, width, height, palette, bayerSize, knollPattern, colorSpace, algorithm, serpentine } = e.data
   const data = new Uint8ClampedArray(pixels)
   const indexedPalette = palette.map((color: number[], id: number) => [id, ...color])
   const onProgress = (v: number) => self.postMessage({ type: 'progress', value: v })
 
   if (mode === 'bayer') {
     runBayer(data, width, height, indexedPalette, bayerSize ?? 4, onProgress)
+  } else if (mode === 'pattern') {
+    knollPatternPixels(data, width, height, palette, knollPattern ?? 8, onProgress)
   } else if (mode === 'blue-noise') {
     runBlueNoise(data, width, height, indexedPalette, onProgress)
   } else if (mode === 'riemersma') {

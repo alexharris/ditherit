@@ -1,18 +1,20 @@
 <script setup lang="ts">
 import type { DitherMode } from '~/composables/useDithering'
 import { DIFFUSION_ALGORITHMS } from '~/composables/useDithering'
-import { BAYER_SIZES } from '~/utils/dithering'
+import { BAYER_SIZES, KNOLL_PATTERNS } from '~/utils/dithering'
 
 const {
   ditherMode,
   algorithm,
   serpentine,
-  bayerSize
+  bayerSize,
+  knollPattern
 } = useDithering()
 
 const ditherModes: Array<{ label: string; value: DitherMode }> = [
   { label: 'Error Diffusion', value: 'diffusion' },
   { label: 'Bayer (Ordered)', value: 'bayer' },
+  { label: 'Knoll', value: 'pattern' },
   { label: 'Blue Noise', value: 'blue-noise' },
   { label: 'Riemersma', value: 'riemersma' }
 ]
@@ -57,6 +59,23 @@ const advancedOpen = ref(false)
         :items="BAYER_SIZES"
         class="w-full"
       />
+    </div>
+
+    <!-- Threshold pattern (for Knoll pattern mode) -->
+    <div v-if="ditherMode === 'pattern'" class="space-y-1.5">
+      <HelpTooltip>
+        <template #label>
+          <span class="text-xs font-medium uppercase tracking-wide text-muted">Knoll Pattern</span>
+        </template>
+        <template #help>
+          The pattern to use for the Knoll dither
+        </template>
+        <USelect
+          v-model="knollPattern"
+          :items="KNOLL_PATTERNS"
+          class="mt-1.5 w-full"
+        />
+      </HelpTooltip>
     </div>
 
     <!-- Advanced (serpentine — diffusion only) -->

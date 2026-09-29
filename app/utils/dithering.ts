@@ -675,6 +675,152 @@ export function blueNoiseDither(
   }
 }
 
+// --- Pattern dithering (Thomas Knoll, US 6,606,166 — expired) ---
+//
+// Ordered dithering that works with irregular palettes. Instead of nudging the pixel by the
+// threshold and taking the nearest color (which only suits evenly spaced palettes), it builds a
+// "mixing plan" per color: a list of palette colors that together average to the input, each
+// pick compensating for the error of the ones before. The plan is sorted by luminance and the
+// threshold at each pixel's position chooses one entry. Mixing is done in linear light, so the
+// dithered area has the same brightness as the source.
+// https://bisqwit.iki.fi/story/howto/dither/jy/#PatternDitheringThePatentedAlgorithmUsedInAdobePhotoshop
+
+export type KnollPattern = BayerSize | 'blue-noise'
+
+export const KNOLL_PATTERNS: { label: string, value: KnollPattern }[] = [
+  { label: 'Bayer 2x2', value: 2 },
+  { label: 'Bayer 4x4', value: 4 },
+  { label: 'Bayer 8x8', value: 8 },
+  { label: 'Bayer 16x16', value: 16 },
+  { label: 'Blue noise', value: 'blue-noise' }
+]
+
+// Plan length is the number of threshold levels, capped: plans are built once per input color
+// at (plan length × palette size) cost, and more than 64 steps adds no visible gradation
+const KNOLL_MAX_PLAN = 64
+
+// Plans are cached per input color rounded to 6 bits per channel (the bucket's center). Photos
+// have close to one unique color per pixel; this makes the cache effective (~20× faster) at
+// an error far below what the dither pattern itself introduces.
+const KNOLL_KEY_MASK = 0xFC
+const KNOLL_KEY_CENTER = 2
+
+const SRGB_TO_LINEAR = Float64Array.from({ length: 256 }, (_, v) => {
+  const c = v / 255
+  return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)
+})
+
+// DOM-free core of knollPatternDither, shared with the dither Web Worker.
+export function knollPatternPixels(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  palette: number[][],
+  pattern: KnollPattern,
+  onProgress?: (v: number) => void
+) {
+  const levels = pattern === 'blue-noise' ? 256 : pattern * pattern
+  const planLength = Math.min(levels, KNOLL_MAX_PLAN)
+  const matrix = pattern === 'blue-noise' ? null : BAYER_MATRICES[pattern]
+  const matrixSize = pattern === 'blue-noise' ? 0 : pattern
+
+  const k = palette.length
+  const palR = new Float64Array(k)
+  const palG = new Float64Array(k)
+  const palB = new Float64Array(k)
+  for (let p = 0; p < k; p++) {
+    palR[p] = SRGB_TO_LINEAR[palette[p]![0]!]!
+    palG[p] = SRGB_TO_LINEAR[palette[p]![1]!]!
+    palB[p] = SRGB_TO_LINEAR[palette[p]![2]!]!
+  }
+  // Palette indices from dark to light, so plans come out sorted without a per-plan sort
+  const byLuma = Array.from({ length: k }, (_, p) => p)
+    .sort((a, b) => (0.2126 * palR[a]! + 0.7152 * palG[a]! + 0.0722 * palB[a]!)
+      - (0.2126 * palR[b]! + 0.7152 * palG[b]! + 0.0722 * palB[b]!))
+
+  const counts = new Uint16Array(k)
+  const plans = new Map<number, Uint8Array>()
+
+  function buildPlan(r: number, g: number, b: number): Uint8Array {
+    counts.fill(0)
+    let errR = 0, errG = 0, errB = 0
+    for (let step = 0; step < planLength; step++) {
+      const tr = r + errR
+      const tg = g + errG
+      const tb = b + errB
+      let best = 0
+      let bestDist = Infinity
+      for (let p = 0; p < k; p++) {
+        const dr = tr - palR[p]!
+        const dg = tg - palG[p]!
+        const db = tb - palB[p]!
+        const dist = dr * dr + dg * dg + db * db
+        if (dist < bestDist) {
+          bestDist = dist
+          best = p
+        }
+      }
+      counts[best]!++
+      errR += r - palR[best]!
+      errG += g - palG[best]!
+      errB += b - palB[best]!
+    }
+    const plan = new Uint8Array(planLength)
+    let n = 0
+    for (const p of byLuma) {
+      for (let c = counts[p]!; c > 0; c--) plan[n++] = p
+    }
+    return plan
+  }
+
+  const reportEvery = Math.max(1, Math.floor(height / 10))
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 4
+      const r = (data[i]! & KNOLL_KEY_MASK) | KNOLL_KEY_CENTER
+      const g = (data[i + 1]! & KNOLL_KEY_MASK) | KNOLL_KEY_CENTER
+      const b = (data[i + 2]! & KNOLL_KEY_MASK) | KNOLL_KEY_CENTER
+      const key = (r << 16) | (g << 8) | b
+      let plan = plans.get(key)
+      if (!plan) {
+        plan = buildPlan(SRGB_TO_LINEAR[r]!, SRGB_TO_LINEAR[g]!, SRGB_TO_LINEAR[b]!)
+        plans.set(key, plan)
+      }
+
+      const threshold = matrix
+        ? matrix[y % matrixSize]![x % matrixSize]!
+        : BLUE_NOISE_TEXTURE[(y % 64) * 64 + (x % 64)]!
+      const color = palette[plan[(threshold * planLength) >> 8]!]!
+
+      data[i] = color[0]!
+      data[i + 1] = color[1]!
+      data[i + 2] = color[2]!
+    }
+    if (onProgress && y % reportEvery === 0) {
+      onProgress((y + 1) / height)
+    }
+  }
+}
+
+export function knollPatternDither(
+  ctx: CanvasRenderingContext2D,
+  imageData: ImageData,
+  palette: number[][],
+  blockSize: number,
+  pattern: KnollPattern,
+  smoothDownscale = false
+) {
+  const { width, height } = imageData
+  knollPatternPixels(imageData.data, width, height, palette, pattern)
+
+  ctx.putImageData(imageData, 0, 0)
+
+  if (blockSize > 1) {
+    addPixelation(ctx, ctx.canvas, width, height, blockSize, smoothDownscale)
+  }
+}
+
 export function riemersmaDither(
   ctx: CanvasRenderingContext2D,
   imageData: ImageData,

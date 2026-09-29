@@ -1,6 +1,6 @@
-import type { BayerSize } from '~/utils/dithering'
+import type { BayerSize, KnollPattern } from '~/utils/dithering'
 import { DEFAULT_PALETTE_ALGORITHM, extractPalette, type PaletteAlgorithm } from '~/utils/palette-analysis'
-import { addPixelation, bayerDither, blueNoiseDither, dizzyDither, kernelDiffusionDither, riemersmaDither, simple2DDither } from '~/utils/dithering'
+import { addPixelation, bayerDither, blueNoiseDither, dizzyDither, kernelDiffusionDither, knollPatternDither, riemersmaDither, simple2DDither } from '~/utils/dithering'
 
 // Returns a 24-bit RGB color (0xRRGGBB) guaranteed not to appear in the given palette.
 // Used to designate the GIF transparent color index without conflicting with dithered pixels.
@@ -34,7 +34,7 @@ async function getGifWorkerUrl(): Promise<string> {
   return gifWorkerUrl
 }
 
-export type DitherMode = 'diffusion' | 'bayer' | 'blue-noise' | 'riemersma'
+export type DitherMode = 'diffusion' | 'bayer' | 'pattern' | 'blue-noise' | 'riemersma'
 
 export const DIFFUSION_ALGORITHMS = [
   { label: 'Floyd-Steinberg', value: 'FloydSteinberg' },
@@ -89,6 +89,7 @@ const serpentine = ref(false)
 const pixeliness = ref(1)
 const pixelScale = ref(1)
 const bayerSize = ref<BayerSize>(4)
+const knollPattern = ref<KnollPattern>(8)
 const smoothPixels = ref(false)
 const pixelatedRendering = ref(false)
 const palette = ref<number[][]>([])
@@ -178,6 +179,7 @@ export function useDithering() {
         serpentine: serpentine.value
       }
       if (mode === 'bayer') msg.bayerSize = bayerSize.value
+      if (mode === 'pattern') msg.knollPattern = knollPattern.value
       w.postMessage(msg, [imageData.data.buffer])
     })
   }
@@ -188,6 +190,8 @@ export function useDithering() {
     const imageData = ctx.getImageData(0, 0, width, height)
     if (ditherMode.value === 'bayer') {
       bayerDither(ctx, imageData, paletteToUse, 1, bayerSize.value, smoothPixels.value)
+    } else if (ditherMode.value === 'pattern') {
+      knollPatternDither(ctx, imageData, paletteToUse, 1, knollPattern.value, smoothPixels.value)
     } else if (ditherMode.value === 'blue-noise') {
       blueNoiseDither(ctx, imageData, paletteToUse, 1, smoothPixels.value)
     } else if (ditherMode.value === 'riemersma') {
@@ -442,6 +446,7 @@ export function useDithering() {
     pixeliness,
     pixelScale,
     bayerSize,
+    knollPattern,
     smoothPixels,
     pixelatedRendering,
     palette,
