@@ -342,11 +342,20 @@ export function useImageGallery() {
     return { tooLarge, failed, downscaled, largeFiles, added }
   }
 
-  async function addImageFromUrl(url: string, fileName: string) {
-    const response = await fetch(url)
-    const blob = await response.blob()
-    const file = new File([blob], fileName, { type: blob.type })
-    await addImages([file])
+  // Fetches in parallel but adds in the given order, so the first entry is always the
+  // first image in the gallery (and auto-selected) regardless of which download finishes first
+  async function addImagesFromUrls(entries: { url: string, fileName: string }[]) {
+    const pending = entries.map(async ({ url, fileName }) => {
+      const blob = await (await fetch(url)).blob()
+      return new File([blob], fileName, { type: blob.type })
+    })
+    for (const file of pending) {
+      try {
+        await addImages([await file])
+      } catch {
+        // Skip a failed download; keep adding the rest
+      }
+    }
   }
 
   function selectImage(id: string) {
@@ -511,7 +520,7 @@ export function useImageGallery() {
 
     // Methods
     addImages,
-    addImageFromUrl,
+    addImagesFromUrls,
     selectImage,
     removeImage,
     clearAll,

@@ -7,7 +7,7 @@ import { MAX_UPLOAD_MB } from '~/composables/useImageGallery'
 const DEFAULT_IMAGES = ['chart.jpg', 'earth.png', 'frog.gif', 'snoopy.gif']
 
 function addDefaultImages() {
-  for (const fileName of DEFAULT_IMAGES) addImageFromUrl(`/examples/${fileName}`, fileName)
+  addImagesFromUrls(DEFAULT_IMAGES.map(fileName => ({ url: `/examples/${fileName}`, fileName })))
 }
 
 const {
@@ -41,7 +41,7 @@ const {
   isDownloadingAll,
   isAddingImages,
   addImages,
-  addImageFromUrl,
+  addImagesFromUrls,
   selectImage,
   removeImage,
   clearAll,
