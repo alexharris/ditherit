@@ -286,7 +286,7 @@ function toggleTab(tab: 'save' | 'export' | 'import') {
     <!-- Toolbar -->
     <div class="flex items-center justify-between">
       <UButton
-        label="Save"
+        label="Save palette"
         size="sm"
         :variant="activeTab === 'save' ? 'solid' : 'ghost'"
         color="neutral"
