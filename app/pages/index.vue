@@ -845,6 +845,9 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, smo
           @dragleave="handleDragLeave"
           @drop="handleDrop"
         >
+          <h1 class="sr-only">
+            Dither it! — free online image dithering tool
+          </h1>
           <!-- Mobile floating image toolbar pill (replaced by inline toolbar in flex-col flow) -->
           <div
             v-if="false"

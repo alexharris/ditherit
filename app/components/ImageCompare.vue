@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// Import the web component
-import 'img-comparison-slider'
+// Import the web component (it touches HTMLElement, so only in the browser)
+if (import.meta.client) import('img-comparison-slider')
 
 const props = defineProps<{
   originalSrc: string

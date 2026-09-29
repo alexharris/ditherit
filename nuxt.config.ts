@@ -2,8 +2,6 @@
 export default defineNuxtConfig({
   modules: ['@nuxt/eslint', '@nuxt/ui', '@nuxt/content'],
 
-  ssr: false,
-
   app: {
     head: {
       title: 'Dither it!',
@@ -56,7 +54,7 @@ export default defineNuxtConfig({
 
   nitro: {
     prerender: {
-      routes: ['/blog-latest.json']
+      routes: ['/blog-latest.json', '/rss.xml']
     }
   },
 

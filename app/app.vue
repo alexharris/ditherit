@@ -1,8 +1,20 @@
 <script setup>
+const siteUrl = 'https://ditherit.com'
+const route = useRoute()
+
+// Netlify serves prerendered pages at their trailing-slash URL (/about → 301 → /about/)
+const canonicalUrl = computed(() => {
+  const path = route.path === '/' || route.path.endsWith('/') ? route.path : `${route.path}/`
+  return `${siteUrl}${path}`
+})
+
 useHead({
   htmlAttrs: {
     lang: 'en'
-  }
+  },
+  link: [
+    { rel: 'canonical', href: canonicalUrl }
+  ]
 })
 
 const title = 'Dither it!'
@@ -13,9 +25,14 @@ useSeoMeta({
   description,
   ogTitle: title,
   ogDescription: description,
-  ogImage: '/og-image.png',
+  ogType: 'website',
+  ogSiteName: title,
+  ogUrl: canonicalUrl,
+  ogImage: `${siteUrl}/og-image.png`,
+  ogImageWidth: 1200,
+  ogImageHeight: 630,
   twitterCard: 'summary_large_image',
-  twitterImage: '/og-image.png'
+  twitterImage: `${siteUrl}/og-image.png`
 })
 </script>
 
