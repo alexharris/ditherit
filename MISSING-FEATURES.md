@@ -75,6 +75,13 @@ This document tracks features from the original ditherit that need to be impleme
 - [ ] Ko-fi button or similar
 - [ ] Support link in footer
 
+### GIF Export
+- [ ] Reduce flicker: keep a pixel's previous dithered color when its source color barely changed (e.g. within ±8 per channel) since that pixel was last updated. Comparing against the last-updated source, not the previous frame, stops slow fades from freezing. Noisy source GIFs flicker in every mode — measured with ±3 source noise: Floyd-Steinberg ~42% of pixels flip per frame, Knoll ~4.5%, Bayer ~1.4%. Also shrinks GIF file size.
+- [ ] Suggest an ordered mode (Bayer, Knoll, Blue Noise) when a GIF is loaded with Error Diffusion selected — error diffusion flickers most between frames.
+
+### Color Selection Methods
+- [ ] Add Wu's quantizer to `PALETTE_ALGORITHMS` (`app/utils/palette-analysis.ts`) — high quality and fast. Other candidates: octree, NeuQuant.
+
 ### Blog/Quant Page
 - [ ] `/quant` route
 - [ ] Quarterly reports / blog posts
