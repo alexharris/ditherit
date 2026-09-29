@@ -13,7 +13,7 @@ const {
   importFromJson
 } = usePalette()
 
-const { analyzeColorCount } = useDithering()
+const { analyzeColorCount, paletteAlgorithm } = useDithering()
 </script>
 
 <template>
@@ -32,6 +32,7 @@ const { analyzeColorCount } = useDithering()
         :selected-preset="selectedPreset"
         :is-custom-palette-selected="isCustomPaletteSelected"
         :analyze-color-count="analyzeColorCount"
+        :palette-algorithm="paletteAlgorithm"
         class="mt-2"
         @select-preset="selectPreset"
         @set-color="setColorAt"
@@ -41,6 +42,7 @@ const { analyzeColorCount } = useDithering()
         @delete-custom="deleteCustomPalette"
         @import="importFromJson"
         @update:analyze-color-count="(v) => analyzeColorCount = v"
+        @update:palette-algorithm="(v) => paletteAlgorithm = v"
       />
     </HelpTooltip>
   </div>

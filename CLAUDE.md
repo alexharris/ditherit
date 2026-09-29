@@ -26,7 +26,7 @@ CI runs lint and typecheck on every push (Node 22, pnpm).
 ### Core Processing Pipeline
 
 1. Images uploaded via drag-and-drop or file picker → managed by `useImageGallery` composable
-2. Selected image analyzed for palette via `useDithering.analyzePalette()` (uses RgbQuant)
+2. Selected image analyzed for palette via `useDithering.analyzePalette()` (uses the selected algorithm in `app/utils/palette-analysis.ts`)
 3. User configures settings in sidebar (mode, algorithm, colors, palette, pixeliness)
 4. Dithering applied via one of two paths:
    - **Error diffusion** (`ditherMode: 'diffusion'`): `kernelDiffusionDither()` in `app/utils/dithering.ts` with 11 kernels (Floyd-Steinberg, Atkinson, Stucki, etc.), in RGB or OKLab
@@ -52,9 +52,12 @@ CI runs lint and typecheck on every push (Node 22, pnpm).
 - `addPixelation()` — Block-size pixelation effect via canvas downscale/upscale
 - `getClosestColor()` — Euclidean distance color matching
 
+### Palette Analysis (`app/utils/palette-analysis.ts`)
+
+Picks the "Original (from image)" palette. The image is downscaled and bucketed into a color histogram once, then handed to one of the algorithms in `PALETTE_ALGORITHMS` (K-means in OKLab, median cut, popularity). To add an algorithm, write a `PaletteQuantizer` (`(bins, count) => number[][]`) and add an entry to `PALETTE_ALGORITHMS` — the UI selector, deduplication and dark→light sorting come for free.
+
 ## Important Dependencies
 
-- **RgbQuant** — Custom fork (`github:alexharris/RgbQuant.js`). Used only for palette analysis (`sample()` + `palette()`), not for dithering. Vite must force-optimize this dep (configured in nuxt.config.ts).
 - **img-comparison-slider** — Web component, not a Vue component. Registered via `vue.compilerOptions.isCustomElement` in nuxt.config.ts.
 
 ## Code Style

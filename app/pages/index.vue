@@ -28,6 +28,7 @@ const {
   sizeValid,
   autoApply,
   analyzeColorCount,
+  paletteAlgorithm,
   analyzePalette,
   dither,
   ditherGif
@@ -672,8 +673,8 @@ watch(selectedImage, async (newImage) => {
   }
 }, { immediate: true })
 
-// Re-analyze image palette when color count is applied (only affects "original" preset)
-watch(analyzeColorCount, async () => {
+// Re-analyze image palette when color count or method changes (only affects "original" preset)
+watch([analyzeColorCount, paletteAlgorithm], async () => {
   if (selectedPreset.value === 'original' && selectedImage.value) {
     const img = await loadImage(selectedImage.value.originalSrc)
     const colors = await analyzePalette(img)

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { PRESET_PALETTES, type PaletteColor } from '~/composables/usePalette'
+import { PALETTE_ALGORITHMS, type PaletteAlgorithm } from '~/utils/palette-analysis'
 
 const props = defineProps<{
   palette: PaletteColor[]
@@ -7,6 +8,7 @@ const props = defineProps<{
   selectedPreset: string
   isCustomPaletteSelected: boolean
   analyzeColorCount: number
+  paletteAlgorithm: PaletteAlgorithm
 }>()
 
 const emit = defineEmits<{
@@ -20,7 +22,10 @@ const emit = defineEmits<{
   (e: 'deleteCustom', index: number): void
   (e: 'import', json: string): void
   (e: 'update:analyzeColorCount', value: number): void
+  (e: 'update:paletteAlgorithm', value: PaletteAlgorithm): void
 }>()
+
+const paletteAlgorithmOptions = PALETTE_ALGORITHMS.map(({ label, value }) => ({ label, value }))
 
 // Color count input — local staging value, only committed on apply
 const colorCountInput = ref(props.analyzeColorCount)
@@ -222,6 +227,39 @@ function toggleTab(tab: 'save' | 'export' | 'import') {
       class="w-full"
       @update:model-value="handlePresetChange"
     />
+
+    <!-- Analysis method selector (original palette only) -->
+    <div v-if="selectedPreset === 'original'" class="space-y-1">
+      <HelpTooltip>
+        <template #label>
+          <span class="text-xs text-gray-500 dark:text-gray-400">Color selection method</span>
+        </template>
+        <template #help>
+          <p class="mb-2">
+            How colors are picked from the image.
+          </p>
+          <dl class="space-y-1.5">
+            <div
+              v-for="algo in PALETTE_ALGORITHMS"
+              :key="algo.value"
+            >
+              <dt class="font-medium">
+                {{ algo.label }}
+              </dt>
+              <dd class="text-muted">
+                {{ algo.description }}
+              </dd>
+            </div>
+          </dl>
+        </template>
+        <USelect
+          :model-value="paletteAlgorithm"
+          :items="paletteAlgorithmOptions"
+          class="mt-1 w-full"
+          @update:model-value="(v) => emit('update:paletteAlgorithm', v as PaletteAlgorithm)"
+        />
+      </HelpTooltip>
+    </div>
 
     <!-- Color count selector (original palette only) -->
     <div v-if="selectedPreset === 'original'" class="space-y-1">

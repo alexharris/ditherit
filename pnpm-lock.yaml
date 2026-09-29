@@ -41,9 +41,6 @@ importers:
       nuxt:
         specifier: ^4.3.0
         version: 4.4.2(@babel/core@7.29.0)(@babel/plugin-syntax-jsx@7.28.6(@babel/core@7.29.0))(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2)(@parcel/watcher@2.5.6)(@vue/compiler-sfc@3.5.32)(better-sqlite3@12.9.0)(cac@6.7.14)(db0@0.3.4(better-sqlite3@12.9.0))(eslint@9.39.4(jiti@2.6.1))(ioredis@5.10.1)(lightningcss@1.32.0)(magicast@0.5.2)(optionator@0.9.4)(rollup-plugin-visualizer@7.0.1(rollup@4.60.1))(rollup@4.60.1)(srvx@0.11.15)(terser@5.46.1)(typescript@5.9.3)(vite@7.3.2(jiti@2.6.1)(lightningcss@1.32.0)(terser@5.46.1)(yaml@2.8.3))(vue-tsc@3.2.6(typescript@5.9.3))(yaml@2.8.3)
-      rgbquant:
-        specifier: github:alexharris/RgbQuant.js
-        version: https://codeload.github.com/alexharris/RgbQuant.js/tar.gz/96536e6ef658445b9baab17eb41b00026596b9ba
       tailwindcss:
         specifier: ^4.1.18
         version: 4.2.2
@@ -4921,10 +4918,6 @@ packages:
   reusify@1.1.0:
     resolution: {integrity: sha512-g6QUff04oZpHs0eG5p83rFLhHeV00ug/Yf9nZM6fLeUrPguBTkTQOdpAWWspMh55TZfVQDPaN3NQJfbVRAxdIw==}
     engines: {iojs: '>=1.0.0', node: '>=0.10.0'}
-
-  rgbquant@https://codeload.github.com/alexharris/RgbQuant.js/tar.gz/96536e6ef658445b9baab17eb41b00026596b9ba:
-    resolution: {tarball: https://codeload.github.com/alexharris/RgbQuant.js/tar.gz/96536e6ef658445b9baab17eb41b00026596b9ba}
-    version: 1.1.2
 
   rollup-plugin-visualizer@7.0.1:
     resolution: {integrity: sha512-UJUT4+1Ho4OcWmPYU3sYXgUqI8B8Ayfe06MX7y0qCJ1K8aGoKtR/NDd/2nZqM7ADkrzny+I99Ul7GgyoiVNAgg==}
@@ -11611,8 +11604,6 @@ snapshots:
       supports-preserve-symlinks-flag: 1.0.0
 
   reusify@1.1.0: {}
-
-  rgbquant@https://codeload.github.com/alexharris/RgbQuant.js/tar.gz/96536e6ef658445b9baab17eb41b00026596b9ba: {}
 
   rollup-plugin-visualizer@7.0.1(rollup@4.60.1):
     dependencies:

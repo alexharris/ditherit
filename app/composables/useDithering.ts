@@ -1,17 +1,5 @@
 import type { BayerSize } from '~/utils/dithering'
-
-// Used only for palette analysis (dithering itself is in ~/utils/dithering).
-// Lazily loaded — defers 393KB parse cost until the first palette analysis.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type RgbQuantConstructor = new (opts: any) => any
-let _RgbQuant: RgbQuantConstructor | null = null
-async function getRgbQuant(): Promise<RgbQuantConstructor> {
-  if (!_RgbQuant) {
-    const mod = await import('rgbquant')
-    _RgbQuant = (mod.default ?? mod) as RgbQuantConstructor
-  }
-  return _RgbQuant
-}
+import { DEFAULT_PALETTE_ALGORITHM, extractPalette, type PaletteAlgorithm } from '~/utils/palette-analysis'
 import { addPixelation, bayerDither, blueNoiseDither, dizzyDither, kernelDiffusionDither, riemersmaDither, simple2DDither } from '~/utils/dithering'
 
 // Returns a 24-bit RGB color (0xRRGGBB) guaranteed not to appear in the given palette.
@@ -44,20 +32,6 @@ async function getGifWorkerUrl(): Promise<string> {
     gifWorkerUrl = URL.createObjectURL(blob)
   }
   return gifWorkerUrl
-}
-
-export interface RgbQuantOptions {
-  colors: number
-  method: number
-  boxSize: [number, number]
-  boxPxls: number
-  initColors: number
-  minHueCols: number
-  palette: number[][]
-  reIndex: boolean
-  useCache: boolean
-  cacheFreq: number
-  colorDist: string
 }
 
 export type DitherMode = 'diffusion' | 'bayer' | 'blue-noise' | 'riemersma'
@@ -124,6 +98,7 @@ const originalHeight = ref(0)
 const sizeWidth = ref<number | undefined>(undefined)
 const sizeValid = ref(true)
 const analyzeColorCount = ref(8)
+const paletteAlgorithm = ref<PaletteAlgorithm>(DEFAULT_PALETTE_ALGORITHM)
 const autoApply = ref(true)
 
 // Dither Web Worker (lazily created)
@@ -226,29 +201,11 @@ export function useDithering() {
     }
   }
 
-  const rgbQuantOptions = computed<RgbQuantOptions>(() => ({
-    colors: palette.value.length || 8,
-    method: 2,
-    boxSize: [8, 8],
-    boxPxls: 2,
-    initColors: 4096,
-    minHueCols: 2000,
-    palette: palette.value,
-    reIndex: false,
-    useCache: true,
-    cacheFreq: 10,
-    colorDist: 'euclidean'
-  }))
-
-  async function analyzePalette(image: HTMLImageElement): Promise<number[][]> {
-    const RgbQuant = await getRgbQuant()
-    const q = new RgbQuant({
-      ...rgbQuantOptions.value,
-      colors: analyzeColorCount.value,
-      palette: []
-    })
-    q.sample(image)
-    return q.palette(true)
+  async function analyzePalette(
+    source: HTMLImageElement | HTMLCanvasElement,
+    count = analyzeColorCount.value
+  ): Promise<number[][]> {
+    return extractPalette(source, count, paletteAlgorithm.value)
   }
 
   function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
@@ -387,10 +344,7 @@ export function useDithering() {
       // Use the configured palette, or derive one from the first frame if none is set
       let paletteToUse = palette.value
       if (paletteToUse.length === 0) {
-        const RgbQuant = await getRgbQuant()
-        const q = new RgbQuant({ ...rgbQuantOptions.value, colors: 8, palette: [] })
-        q.sample(scratchCanvas)
-        paletteToUse = q.palette(true)
+        paletteToUse = await analyzePalette(scratchCanvas, 8)
       }
       paletteToUse = plainPalette(paletteToUse)
       const workerMode = currentWorkerMode()
@@ -497,12 +451,10 @@ export function useDithering() {
     sizeWidth,
     sizeValid,
     autoApply,
-
-    // Computed
-    rgbQuantOptions,
+    analyzeColorCount,
+    paletteAlgorithm,
 
     // Methods
-    analyzeColorCount,
     analyzePalette,
     dither,
     ditherGif

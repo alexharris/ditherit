@@ -139,7 +139,7 @@ export const PRESET_PALETTES: PresetPalette[] = [
 const paletteColors = ref<PaletteColor[]>([{ hex: '#ffffff' }, { hex: '#000000' }])
 const originalPalette = ref<PaletteColor[]>([])
 const customPalettes = ref<CustomPalette[]>([])
-const selectedPreset = ref<string>('blackwhite')
+const selectedPreset = ref<string>('original')
 const editingColorIndex = ref<number | null>(null)
 
 // Module-level computed — shared across all callers
