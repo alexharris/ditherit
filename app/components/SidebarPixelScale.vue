@@ -16,9 +16,6 @@ function handleSizeChange(payload: { width: number | undefined; valid: boolean }
 }
 
 const advancedOpen = ref(false)
-// Pixeliness is hidden for now; Smooth pixels only affects Pixeliness, so the
-// whole Advanced section goes with it. Flip to true to restore.
-const showAdvanced = false
 </script>
 
 <template>
@@ -52,7 +49,6 @@ const showAdvanced = false
     </HelpTooltip>
 
     <UButton
-      v-if="showAdvanced"
       color="neutral"
       variant="ghost"
       size="sm"
@@ -67,7 +63,7 @@ const showAdvanced = false
       />
     </UButton>
 
-    <div v-if="showAdvanced && advancedOpen" class="rounded-md border border-gray-200 dark:border-gray-700 p-3 space-y-3">
+    <div v-if="advancedOpen" class="rounded-md border border-gray-200 dark:border-gray-700 p-3 space-y-3">
       <HelpTooltip>
         <template #label>
           <span class="text-xs font-medium uppercase tracking-wide text-muted">Pixeliness</span>
