@@ -68,7 +68,7 @@ const resourceSections = [
     links: [
       {
         title: 'RgbQuant.js',
-        description: 'The quantization library that powers Dither it!',
+        description: 'The quantization library that powered the original Dither it!',
         url: 'http://leeoniya.github.io/RgbQuant.js/demo/',
       },
       {
