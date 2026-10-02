@@ -4,6 +4,7 @@ import type { GalleryImage } from '~/composables/useImageGallery'
 const props = defineProps<{
   images: GalleryImage[]
   selectedId: string | undefined
+  showAdd?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -98,6 +99,15 @@ onBeforeUnmount(() => {
           v-if="image.isAnimatedGif && image.gifFrameCount"
           class="absolute bottom-0.5 right-0.5 rounded bg-black/60 px-1 text-xs text-white"
         >{{ image.gifFrameCount }}f</span>
+      </button>
+      <button
+        v-if="showAdd"
+        type="button"
+        class="size-10 shrink-0 self-center flex items-center justify-center rounded-full border-2 border-dashed border-gray-100 text-gray-500 transition-colors hover:border-ditherit hover:text-ditherit dark:border-gray-500 dark:hover:border-ditherit"
+        aria-label="Add image"
+        @click="emit('add')"
+      >
+        <UIcon name="i-lucide-plus" class="size-5" />
       </button>
     </div>
     <UButton

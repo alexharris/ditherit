@@ -1,7 +1,9 @@
 <script setup lang="ts">
 definePageMeta({ keepalive: true })
 
-import { loadImage } from '~/composables/useDithering'
+import { loadImage, DIFFUSION_ALGORITHMS, DITHER_MODES } from '~/composables/useDithering'
+import { PRESET_PALETTES } from '~/composables/usePalette'
+import { BAYER_SIZES, KNOLL_PATTERNS } from '~/utils/dithering'
 import type { GalleryImage, AddImagesResult } from '~/composables/useImageGallery'
 import { MAX_UPLOAD_MB } from '~/composables/useImageGallery'
 const DEFAULT_IMAGES = ['chart.jpg', 'earth.png', 'frog.gif', 'snoopy.gif']
@@ -57,6 +59,7 @@ const {
 
 const {
   selectedPreset,
+  customPalettes,
   paletteAsRgb,
   setPaletteFromRgb,
   updateOriginalPalette
@@ -436,6 +439,47 @@ const scorecardDitheredHeight = computed(() => {
   return Math.round((originalHeight.value / originalWidth.value) * scorecardDitheredWidth.value)
 })
 
+const imageInfoRows = computed(() => {
+  const img = selectedImage.value
+  if (!img) return []
+  const rows: { label: string, value: string }[] = [
+    { label: 'Name', value: img.fileName },
+    { label: 'Format', value: img.originalMimeType.split('/')[1]?.toUpperCase().replace('JPEG', 'JPG') ?? 'Unknown' },
+    { label: 'File size', value: formatBytes(img.originalFileSize) }
+  ]
+  if (originalWidth.value && originalHeight.value) {
+    const mp = (originalWidth.value * originalHeight.value) / 1_000_000
+    rows.push({ label: 'Dimensions', value: `${originalWidth.value} × ${originalHeight.value} (${mp.toFixed(1)} MP)` })
+  }
+  if (img.wasDownscaled && img.uploadWidth) {
+    rows.push({ label: 'Upload size', value: `${img.uploadWidth} × ${img.uploadHeight}` })
+  }
+  if (scorecardDitheredWidth.value && scorecardDitheredHeight.value && scorecardDitheredWidth.value !== originalWidth.value) {
+    rows.push({ label: 'Output', value: `${scorecardDitheredWidth.value} × ${scorecardDitheredHeight.value}` })
+  }
+  if (img.gifFrameCount) rows.push({ label: 'Frames', value: String(img.gifFrameCount) })
+  rows.push({ label: 'Dither', value: ditherSettingsLabel.value })
+  rows.push({ label: 'Palette', value: `${paletteName.value} (${palette.value.length} colors)` })
+  return rows
+})
+
+const ditherSettingsLabel = computed(() => {
+  const mode = DITHER_MODES.find(m => m.value === ditherMode.value)?.label ?? ditherMode.value
+  let detail: string | undefined
+  if (ditherMode.value === 'diffusion') detail = DIFFUSION_ALGORITHMS.find(a => a.value === algorithm.value)?.label
+  else if (ditherMode.value === 'bayer') detail = BAYER_SIZES.find(b => b.value === bayerSize.value)?.label
+  else if (ditherMode.value === 'pattern') detail = KNOLL_PATTERNS.find(k => k.value === knollPattern.value)?.label
+  return detail ? `${mode} · ${detail}` : mode
+})
+
+const paletteName = computed(() => {
+  const preset = selectedPreset.value
+  if (preset === 'original') return 'Original'
+  if (preset === 'custom') return 'Custom'
+  if (preset.startsWith('custom-')) return customPalettes.value[Number(preset.slice(7))]?.name ?? 'Custom'
+  return PRESET_PALETTES.find(p => p.value === preset)?.name ?? 'Custom'
+})
+
 const pngSizeLabel = computed(() => {
   const size = selectedImage.value?.ditheredBlob?.size
   return size ? `PNG (${formatBytes(size)})` : 'PNG'
@@ -716,6 +760,13 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, kno
     }
   })
 }, { deep: true })
+
+const footerLinks = [
+  { label: 'Submit Feedback', to: '/contact' },
+  { label: 'Blog', to: '/blog' },
+  { label: 'Newsletter', to: 'https://buttondown.com/ditherit', external: true },
+  { label: 'Old Version', to: 'https://v2.ditherit.com', external: true }
+]
 </script>
 
 <template>
@@ -909,8 +960,7 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, kno
 
           <!-- Preview Area -->
           <div
-            class="flex flex-1 flex-col items-center overflow-hidden p-2 lg:p-8"
-            :class="isIntro ? 'lg:border-2 lg:border-dashed lg:border-gray-100 lg:m-4 dark:lg:border-gray-500' : ''"
+            class="flex flex-1 flex-col items-center overflow-hidden p-2 lg:px-8 lg:py-2"
           >
             <div
               v-if="selectedImage"
@@ -945,7 +995,7 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, kno
               </div>
 
               <!-- Image + toolbar zone -->
-              <div class="flex min-h-0 w-full flex-col items-center justify-center gap-2" style="flex: 0 0 70%">
+              <div class="flex min-h-0 w-full flex-[0_0_70%] flex-col items-center justify-center gap-2 lg:flex-[0_0_85%]">
               <!-- Image wrapper -->
               <div
                 ref="imageContainerRef"
@@ -1046,6 +1096,24 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, kno
                 </div>
                 <UPopover>
                   <UButton
+                    icon="i-lucide-info"
+                    color="neutral"
+                    variant="ghost"
+                    size="sm"
+                  >
+                    <span class="hidden lg:inline">Info</span>
+                  </UButton>
+                  <template #content>
+                    <dl class="grid max-w-72 grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 p-3 text-xs">
+                      <template v-for="row in imageInfoRows" :key="row.label">
+                        <dt class="text-gray-500 dark:text-gray-400">{{ row.label }}</dt>
+                        <dd class="min-w-0 break-words font-medium text-gray-800 dark:text-gray-100">{{ row.value }}</dd>
+                      </template>
+                    </dl>
+                  </template>
+                </UPopover>
+                <UPopover>
+                  <UButton
                     icon="i-lucide-download"
                     color="neutral"
                     variant="ghost"
@@ -1079,7 +1147,7 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, kno
                 <UButton
                   v-if="!isDefaultImage"
                   icon="i-lucide-trash-2"
-                  color="error"
+                  color="primary"
                   variant="ghost"
                   size="sm"
                   @click="removeImage(selectedImage.id)"
@@ -1094,13 +1162,10 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, kno
                   <FileSizeReport
                     :original-size="selectedImage.originalFileSize"
                     :dithered-file-size="scorecardDitheredSize"
-                    :file-name="selectedImage.fileName"
                     :original-width="originalWidth || undefined"
                     :original-height="originalHeight || undefined"
                     :dithered-width="scorecardDitheredWidth"
                     :dithered-height="scorecardDitheredHeight"
-                    :original-mime-type="selectedImage.originalMimeType"
-                    :gif-frame-count="selectedImage.gifFrameCount || undefined"
                     class="w-full"
                   />
                 </template>
@@ -1144,27 +1209,23 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, kno
 
       <!-- Bottom Bar (thumbnails + actions) -->
       <footer
-        class="hidden lg:flex shrink-0 items-center gap-2 bg-white rounded-xl shadow-sm mx-3 mb-6 mt-1 px-3 py-2 dark:bg-gray-800"
+        class="hidden lg:flex shrink-0 items-center gap-2 bg-white rounded-xl shadow-sm mx-auto w-[70%] mb-6 mt-1 px-3 py-2 dark:bg-gray-800"
       >
+        <!-- Left spacer — grows equally with the action buttons so the thumbnails stay centered in the bar -->
+        <div class="flex-1 basis-0" />
         <!-- Image Thumbnails -->
-        <div v-if="hasImages" class="flex-1 min-w-0 overflow-x-auto flex items-center gap-2">
+        <div v-if="hasImages" class="min-w-0 flex items-center">
           <ImageThumbnailStrip
             :images="images"
             :selected-id="selectedImage?.id"
+            show-add
             @select="selectImage"
             @remove="removeImage"
             @add="triggerFileInput"
           />
-          <button
-            class="size-10 shrink-0 flex items-center justify-center rounded-full border-2 border-dashed border-gray-100 text-gray-500 transition-colors hover:border-gray-500 hover:text-gray-500 dark:border-gray-500 dark:hover:border-gray-500"
-            aria-label="Add image"
-            @click="triggerFileInput"
-          >
-            <UIcon name="i-lucide-plus" class="size-5" />
-          </button>
         </div>
         <!-- Action buttons (desktop only) -->
-        <div class="hidden lg:flex shrink-0 items-center gap-2">
+        <div class="hidden lg:flex flex-1 basis-0 justify-end items-center gap-2">
           <UButton
             v-if="images.length > 0 && !isDefaultImage"
             icon="i-lucide-trash-2"
@@ -1256,26 +1317,24 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, kno
       </div>
     </div>
 
-    <!-- Right Sidebar (desktop only) -->
-    <aside class="hidden lg:block w-64 shrink-0 overflow-y-auto max-h-[calc(100%-1.5rem)] mt-3 mb-3 mx-3">
-      <div class="flex flex-col gap-3">
+    <!-- Right Sidebar (desktop only) — column matches the left sidebar's w-64 so the work area stays centered under the logo -->
+    <aside class="hidden lg:block w-64 shrink-0 overflow-y-auto max-h-[calc(100%-1.5rem)] mt-3 mb-3 px-3">
+      <div class="ml-auto flex w-[158px] flex-col gap-3">
         <div
           v-if="selectedImage"
-          class="rounded-xl shadow-sm bg-white dark:bg-gray-800 overflow-hidden p-4"
+          class="rounded-xl shadow-sm bg-white dark:bg-gray-800 overflow-hidden p-3"
         >
           <FileSizeReport
             :original-size="selectedImage.originalFileSize"
             :dithered-file-size="scorecardDitheredSize"
-            :file-name="selectedImage.fileName"
             :original-width="originalWidth || undefined"
             :original-height="originalHeight || undefined"
             :dithered-width="scorecardDitheredWidth"
             :dithered-height="scorecardDitheredHeight"
-            :original-mime-type="selectedImage.originalMimeType"
-            :gif-frame-count="selectedImage.gifFrameCount || undefined"
             class="w-full"
           />
         </div>
+        <!-- Temporarily hidden — these links live in the footer for now; still shown in the mobile menu (AppHeader)
         <SidebarFeedback />
         <SidebarLatestPost />
         <NewsletterSignup />
@@ -1292,10 +1351,25 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, kno
             </p>
           </UCard>
         </a>
+        -->
       </div>
     </aside>
 
     </div>
+
+    <!-- Footer (desktop only — mobile has the bottom toolbar and these links live in the menu) -->
+    <footer class="hidden lg:flex h-8 shrink-0 items-center justify-center gap-0.5 px-4">
+      <UButton
+        v-for="link in footerLinks"
+        :key="link.label"
+        :label="link.label"
+        :to="link.to"
+        :target="link.external ? '_blank' : undefined"
+        color="primary"
+        variant="link"
+        size="xs"
+      />
+    </footer>
   </div>
 </template>
 

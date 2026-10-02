@@ -2,13 +2,10 @@
 const props = defineProps<{
   originalSize: number // in bytes
   ditheredFileSize: number | null // in bytes, in the original file format
-  fileName?: string
   originalWidth?: number
   originalHeight?: number
   ditheredWidth?: number
   ditheredHeight?: number
-  originalMimeType?: string
-  gifFrameCount?: number
 }>()
 
 const originalKb = computed(() => (props.originalSize / 1024).toFixed(1))
@@ -41,30 +38,15 @@ const savedKb = computed(() => {
   const saved = (props.originalSize - (props.ditheredFileSize || 0)) / 1024
   return saved > 0 ? saved.toFixed(1) : '0'
 })
-
-const megapixels = computed(() => {
-  if (!props.originalWidth || !props.originalHeight) return null
-  return ((props.originalWidth * props.originalHeight) / 1_000_000).toFixed(1)
-})
-
-const dimensions = computed(() => {
-  if (!props.originalWidth || !props.originalHeight) return null
-  return `${props.originalWidth} × ${props.originalHeight}`
-})
-
-const inputFormat = computed(() => {
-  if (!props.originalMimeType) return null
-  return props.originalMimeType.split('/')[1]?.toUpperCase().replace('JPEG', 'JPG') ?? null
-})
 </script>
 
 <template>
   <div class="flex flex-col items-center">
     <!-- Card title -->
-    <p class="mb-2 w-full text-sm font-medium text-highlighted">📊 File Size</p>
+    <p class="mb-2 w-full text-sm font-medium text-highlighted">File Size</p>
 
     <!-- Donut Chart -->
-    <div class="w-20">
+    <div class="w-full max-w-32">
       <svg viewBox="0 0 42 42" class="w-full">
         <!-- Background ring -->
         <circle
@@ -103,16 +85,21 @@ const inputFormat = computed(() => {
       </svg>
     </div>
 
-    <!-- File name -->
-    <p v-if="fileName" class="mt-1 w-full truncate text-center text-xs text-gray-800 dark:text-gray-100">{{ fileName }}</p>
+    <!-- Saved amount -->
+    <p
+      class="mt-1 text-sm font-medium"
+      :class="ditheredFileSize && isSmaller ? 'text-green-600 dark:text-green-400' : 'text-gray-100 dark:text-gray-400'"
+    >
+      {{ ditheredFileSize && isSmaller ? `${savedKb} KB` : '— KB' }} saved
+    </p>
 
     <!-- Size details -->
     <div class="mt-3 w-full space-y-1.5 text-xs">
-      <div class="flex justify-between">
+      <div class="flex flex-wrap justify-between gap-x-1">
         <span class="text-gray-800 dark:text-gray-100">Original</span>
         <span class="font-medium text-gray-800 dark:text-gray-100">{{ originalKb }} KB</span>
       </div>
-      <div class="flex justify-between">
+      <div class="flex flex-wrap justify-between gap-x-1">
         <span class="text-gray-800 dark:text-gray-100">Dithered</span>
         <span
           class="font-medium"
@@ -122,31 +109,6 @@ const inputFormat = computed(() => {
         >
           {{ ditheredFileSize ? `${ditheredKb} KB` : '— KB' }}
         </span>
-      </div>
-      <div class="flex justify-between border-t border-gray-100 pt-1.5 dark:border-gray-800">
-        <span class="text-gray-800 dark:text-gray-100">Saved</span>
-        <span
-          class="font-medium"
-          :class="ditheredFileSize && isSmaller ? 'text-green-600 dark:text-green-400' : 'text-gray-100 dark:text-gray-400'"
-        >
-          {{ ditheredFileSize && isSmaller ? `${savedKb} KB` : '— KB' }}
-        </span>
-      </div>
-      <div v-if="dimensions" class="flex justify-between border-t border-gray-100 pt-1.5 dark:border-gray-800">
-        <span class="text-gray-800 dark:text-gray-100">Dimensions</span>
-        <span class="font-medium text-gray-800 dark:text-gray-100">{{ dimensions }}</span>
-      </div>
-      <div v-if="megapixels" class="flex justify-between">
-        <span class="text-gray-800 dark:text-gray-100">Megapixels</span>
-        <span class="font-medium text-gray-800 dark:text-gray-100">{{ megapixels }} MP</span>
-      </div>
-      <div v-if="inputFormat" class="flex justify-between">
-        <span class="text-gray-800 dark:text-gray-100">Format</span>
-        <span class="font-medium text-gray-800 dark:text-gray-100">{{ inputFormat }} → PNG</span>
-      </div>
-      <div v-if="gifFrameCount" class="flex justify-between">
-        <span class="text-gray-800 dark:text-gray-100">Frames</span>
-        <span class="font-medium text-gray-800 dark:text-gray-100">{{ gifFrameCount }}</span>
       </div>
     </div>
 

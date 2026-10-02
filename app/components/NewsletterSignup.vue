@@ -14,10 +14,14 @@
         method="post"
         class="flex flex-col gap-2"
       >
-        <label for="bd-email" class="text-sm font-medium text-highlighted">Email address</label>
-        <UInput type="email" name="email" id="bd-email" placeholder="you@example.com" class="w-full" />
+        <label :for="emailId" class="text-sm font-medium text-highlighted">Email address</label>
+        <UInput type="email" name="email" :id="emailId" placeholder="you@example.com" class="w-full" />
         <UButton type="submit" label="Subscribe" color="primary" variant="solid" class="w-full justify-center" />
       </form>
     </div>
   </UCard>
 </template>
+
+<script setup lang="ts">
+const emailId = useId()
+</script>

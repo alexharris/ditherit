@@ -36,6 +36,14 @@ async function getGifWorkerUrl(): Promise<string> {
 
 export type DitherMode = 'diffusion' | 'bayer' | 'pattern' | 'blue-noise' | 'riemersma'
 
+export const DITHER_MODES: Array<{ label: string, value: DitherMode }> = [
+  { label: 'Error Diffusion', value: 'diffusion' },
+  { label: 'Bayer (Ordered)', value: 'bayer' },
+  { label: 'Knoll', value: 'pattern' },
+  { label: 'Blue Noise', value: 'blue-noise' },
+  { label: 'Riemersma', value: 'riemersma' }
+]
+
 export const DIFFUSION_ALGORITHMS = [
   { label: 'Floyd-Steinberg', value: 'FloydSteinberg' },
   { label: 'Atkinson', value: 'Atkinson' },

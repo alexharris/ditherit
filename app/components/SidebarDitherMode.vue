@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import type { DitherMode } from '~/composables/useDithering'
-import { DIFFUSION_ALGORITHMS } from '~/composables/useDithering'
+import { DIFFUSION_ALGORITHMS, DITHER_MODES } from '~/composables/useDithering'
 import { BAYER_SIZES, KNOLL_PATTERNS } from '~/utils/dithering'
 
 const {
@@ -11,13 +10,7 @@ const {
   knollPattern
 } = useDithering()
 
-const ditherModes: Array<{ label: string; value: DitherMode }> = [
-  { label: 'Error Diffusion', value: 'diffusion' },
-  { label: 'Bayer (Ordered)', value: 'bayer' },
-  { label: 'Knoll', value: 'pattern' },
-  { label: 'Blue Noise', value: 'blue-noise' },
-  { label: 'Riemersma', value: 'riemersma' }
-]
+const ditherModes = DITHER_MODES
 
 const advancedOpen = ref(false)
 </script>

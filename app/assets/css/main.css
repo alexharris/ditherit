@@ -1,6 +1,14 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
+/* Tailwind v4 reset buttons to the default cursor — restore the pointer (links already have it) */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
 /* Prevent pull-to-refresh and overscroll bounce on mobile */
 html, body {
   overscroll-behavior: none;

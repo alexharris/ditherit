@@ -25,6 +25,8 @@ export interface GalleryImage {
   gifFrameCount: number | null
   processingProgress: number | null // 0–1 while dithering GIF frames
   wasDownscaled: boolean // shrunk to MAX_EDGE on upload
+  uploadWidth: number // dimensions of the uploaded file, before any downscale
+  uploadHeight: number
 }
 
 export interface DownscaledImage {
@@ -268,11 +270,15 @@ export function useImageGallery() {
       let gifFrames: GifFrame[] | null = null
       let gifFrameCount: number | null = null
       let wasDownscaled = false
+      let uploadWidth = 0
+      let uploadHeight = 0
 
       // Object URL avoids building a huge base64 string just to read dimensions
       const objectUrl = URL.createObjectURL(file)
       try {
         const dims = await getImageDimensions(objectUrl)
+        uploadWidth = dims.width
+        uploadHeight = dims.height
         const longEdge = Math.max(dims.width, dims.height)
         const scale = longEdge > MAX_EDGE ? MAX_EDGE / longEdge : 1
         width = Math.max(1, Math.round(dims.width * scale))
@@ -323,7 +329,9 @@ export function useImageGallery() {
         gifFrames,
         gifFrameCount,
         processingProgress: null,
-        wasDownscaled
+        wasDownscaled,
+        uploadWidth,
+        uploadHeight
       }
       images.value.push(newImage)
 

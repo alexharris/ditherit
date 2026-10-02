@@ -148,6 +148,8 @@ function mobileNavigate(to: string) {
         <SidebarFeedback />
 
         <SidebarLatestPost />
+
+        <NewsletterSignup />
       </div>
     </template>
   </USlideover>
