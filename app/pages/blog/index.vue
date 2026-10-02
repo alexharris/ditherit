@@ -19,7 +19,7 @@ const { data: posts } = await useAsyncData('blog', () =>
           {{ post.title }}
         </h2>
         <p class="text-sm text-gray-500">
-          {{ new Date(post.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) }}
+          {{ new Date(post.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' }) }}
         </p>
       </div>
       <div class="prose prose-gray dark:prose-invert max-w-none">
