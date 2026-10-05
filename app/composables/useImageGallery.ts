@@ -52,6 +52,16 @@ const isDownloadingAll = ref(false)
 const addingCount = ref(0) // >0 while files are being decoded/downscaled
 const isAddingImages = computed(() => addingCount.value > 0)
 
+// Global setting, persisted across sessions: shrink oversized images on upload
+const AUTO_DOWNSCALE_KEY = 'ditherit_auto_downscale'
+const autoDownscale = ref(true)
+if (typeof localStorage !== 'undefined') {
+  autoDownscale.value = localStorage.getItem(AUTO_DOWNSCALE_KEY) !== 'false'
+  watch(autoDownscale, (val) => {
+    localStorage.setItem(AUTO_DOWNSCALE_KEY, String(val))
+  })
+}
+
 const selectedImage = computed(() =>
   images.value.find(img => img.id === selectedId.value) || null
 )
@@ -280,7 +290,7 @@ export function useImageGallery() {
         uploadWidth = dims.width
         uploadHeight = dims.height
         const longEdge = Math.max(dims.width, dims.height)
-        const scale = longEdge > MAX_EDGE ? MAX_EDGE / longEdge : 1
+        const scale = autoDownscale.value && longEdge > MAX_EDGE ? MAX_EDGE / longEdge : 1
         width = Math.max(1, Math.round(dims.width * scale))
         height = Math.max(1, Math.round(dims.height * scale))
 
@@ -525,6 +535,7 @@ export function useImageGallery() {
     processedCount,
     isDownloadingAll,
     isAddingImages,
+    autoDownscale,
 
     // Methods
     addImages,

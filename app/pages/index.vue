@@ -1241,9 +1241,10 @@ const footerLinks = [
               icon="i-lucide-download"
               color="primary"
               variant="solid"
-              size="md"
+              size="sm"
               :loading="isDownloadingAll"
               :disabled="!selectedImage?.ditheredDataUrl"
+              class="shrink-0 whitespace-nowrap"
             >
               <span>Download All</span>
             </UButton>

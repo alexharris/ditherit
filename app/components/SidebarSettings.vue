@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const emit = defineEmits<{ close: [] }>()
 const { autoApply, colorSpace, pixelatedRendering } = useDithering()
+const { autoDownscale } = useImageGallery()
 const colorMode = useColorMode()
 </script>
 
@@ -18,6 +19,13 @@ const colorMode = useColorMode()
           <USwitch v-model="autoApply" size="sm" />
         </div>
         <p class="text-xs text-muted">Re-dithers automatically when any setting changes. Turn off to apply changes manually.</p>
+      </div>
+      <div class="space-y-1">
+        <div class="flex items-center justify-between gap-4">
+          <span class="text-sm text-gray-700 dark:text-gray-300">Auto-downscale</span>
+          <USwitch v-model="autoDownscale" size="sm" />
+        </div>
+        <p class="text-xs text-muted">Shrinks images larger than 4096px on their longest side when added. Turn off to keep full resolution, which may be slow or fail on some devices.</p>
       </div>
     </div>
 
