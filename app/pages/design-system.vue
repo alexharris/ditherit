@@ -205,7 +205,7 @@ const inputNumberValue = ref(16)
         Form Controls
       </h2>
       <p class="mb-6 text-sm text-gray-500 dark:text-gray-400">
-        Always use NuxtUI. Exception: Netlify form inputs must be raw HTML for bot detection.
+        Always use NuxtUI, Netlify forms included — Netlify detects fields from the static form in public/__forms.html.
       </p>
 
       <div class="space-y-8">
@@ -252,6 +252,17 @@ const inputNumberValue = ref(16)
           </p>
           <UInputNumber v-model="inputNumberValue" :min="2" :max="32" size="xs" class="w-24" />
           <code class="mt-2 block text-xs text-gray-500">size="xs" — used for color count</code>
+        </div>
+
+        <div>
+          <p class="mb-3 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            UFormField
+          </p>
+          <div class="max-w-md space-y-4">
+            <UFormField label="Email" hint="Optional">
+              <UInput placeholder="you@example.com" class="w-full" />
+            </UFormField>
+          </div>
         </div>
       </div>
     </section>

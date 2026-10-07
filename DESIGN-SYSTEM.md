@@ -88,7 +88,9 @@ Always use `UButton`. Never use raw `<button>` except in Netlify forms.
 | `UInputNumber` | Numeric step inputs (e.g. color count) |
 | `UTextarea` | Multi-line text |
 | `UColorPicker` | Hex color selection |
-| Raw `<input>` / `<textarea>` | **Netlify forms only** — required for Netlify's bot detection |
+| `UFormField` | Label, hint and error text around any control above |
+
+**Netlify forms:** Netlify detects fields from the static form in `public/__forms.html` at build time, so the visible form can use NuxtUI. POST the fields URL-encoded to `/__forms.html`; every field you send must also appear in `__forms.html`.
 
 Error state: `color="error"` on UInput.
 

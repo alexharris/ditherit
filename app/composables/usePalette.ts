@@ -206,6 +206,12 @@ export function usePalette() {
     }
   }
 
+  // Loads an arbitrary palette (e.g. from a shared link) as an unsaved custom palette
+  function setCustomPalette(hexes: string[]) {
+    paletteColors.value = hexes.map(hex => ({ hex }))
+    selectedPreset.value = 'custom'
+  }
+
   function selectPreset(value: string) {
     selectedPreset.value = value
 
@@ -320,6 +326,7 @@ export function usePalette() {
     addColor,
     removeColor,
     selectPreset,
+    setCustomPalette,
     loadCustomPalettes,
     saveCurrentPalette,
     deleteCustomPalette,

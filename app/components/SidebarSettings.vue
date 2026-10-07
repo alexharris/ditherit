@@ -3,6 +3,7 @@ const emit = defineEmits<{ close: [] }>()
 const { autoApply, colorSpace, pixelatedRendering } = useDithering()
 const { autoDownscale } = useImageGallery()
 const colorMode = useColorMode()
+const { copyLink, copyDebugInfo } = useShareSettings()
 </script>
 
 <template>
@@ -10,6 +11,20 @@ const colorMode = useColorMode()
     <div class="flex items-center justify-between py-4">
       <span class="text-sm font-medium text-highlighted">Settings</span>
       <UButton icon="i-lucide-x" color="neutral" variant="ghost" size="xs" aria-label="Close" @click="emit('close')" />
+    </div>
+
+    <!-- Desktop has this in the sidebar -->
+    <div class="space-y-1 lg:hidden">
+      <UButton
+        label="Copy settings"
+        icon="i-lucide-copy"
+        color="neutral"
+        variant="outline"
+        size="sm"
+        block
+        @click="copyLink"
+      />
+      <p class="text-xs text-muted">Copies a link with your current dither mode, palette and pixel settings. Anyone who opens it starts with the same look. Your images aren't included and never leave your device.</p>
     </div>
 
     <div class="space-y-3">
@@ -58,6 +73,19 @@ const colorMode = useColorMode()
           :ui="{ base: 'text-left' }"
         />
       </div>
+    </div>
+
+    <!-- Desktop has this below the sidebar -->
+    <div class="pb-4 lg:hidden">
+      <UButton
+        label="Copy debug info"
+        icon="i-lucide-bug"
+        color="neutral"
+        variant="link"
+        size="xs"
+        class="text-gray-500 dark:text-gray-400"
+        @click="copyDebugInfo"
+      />
     </div>
   </div>
 </template>

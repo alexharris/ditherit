@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const { open: openContact } = useContactModal()
 const route = useRoute()
 const title = computed(() => {
   const name = String(route.name ?? '').replace(/-/g, ' ')
@@ -9,7 +10,7 @@ const navItems = [
   { label: 'About', to: '/about' },
   { label: 'Resources', to: '/resources' },
   { label: 'Support', to: '/support' },
-  { label: 'Contact', to: '/contact' },
+  { label: 'Contact', to: '/contact', contact: true },
   { label: 'Design System', to: '/design-system' },
 ]
 </script>
@@ -41,10 +42,11 @@ const navItems = [
             v-for="item in navItems"
             :key="item.to"
             :label="item.label"
-            :to="item.to"
+            :to="'contact' in item ? undefined : item.to"
             :variant="route.path === item.to ? 'soft' : 'ghost'"
             color="neutral"
             size="sm"
+            @click="'contact' in item && openContact()"
           />
         </nav>
         <UButton

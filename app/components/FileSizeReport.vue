@@ -46,7 +46,7 @@ const savedKb = computed(() => {
     <p class="mb-2 w-full text-sm font-medium text-highlighted">File Size</p>
 
     <!-- Donut Chart -->
-    <div class="w-full max-w-32">
+    <div class="w-full max-w-32 lg:max-w-none">
       <svg viewBox="0 0 42 42" class="w-full">
         <!-- Background ring -->
         <circle
@@ -80,7 +80,8 @@ const savedKb = computed(() => {
           class="fill-current"
           :class="ditheredFileSize ? 'text-gray-800 dark:text-gray-100' : 'text-gray-100 dark:text-gray-400'"
         >
-          <tspan x="21" font-size="5" font-weight="bold">{{ ditheredFileSize ? `${percentage}%` : '—' }}</tspan>
+          <!-- Text scales with the chart; shrink it where the chart is uncapped so it reads at the same size -->
+          <tspan x="21" font-size="5" font-weight="bold" class="lg:text-[3px]">{{ ditheredFileSize ? `${percentage}%` : '—' }}</tspan>
         </text>
       </svg>
     </div>

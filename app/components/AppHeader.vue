@@ -2,6 +2,7 @@
 const colorMode = useColorMode()
 const router = useRouter()
 const route = useRoute()
+const { open: openContact } = useContactModal()
 
 defineProps<{ showBack?: boolean }>()
 
@@ -12,12 +13,13 @@ const navItems = [
   { id: 'about', label: 'About', icon: '💡', to: '/about' },
   { id: 'resources', label: 'Resources', icon: '📚', to: '/resources' },
   { id: 'blog', label: 'Blog', icon: '📣', to: '/blog' },
-  { id: 'contact', label: 'Contact', icon: '✉️', to: '/contact' },
+  { id: 'contact', label: 'Contact', icon: '✉️', to: '/contact', contact: true },
 ]
 
-function mobileNavigate(to: string) {
+function mobileNavigate(item: typeof navItems[number]) {
   isMenuOpen.value = false
-  router.push(to)
+  if ('contact' in item) openContact()
+  else router.push(item.to)
 }
 </script>
 
@@ -55,7 +57,8 @@ function mobileNavigate(to: string) {
         :variant="route.path === item.to ? 'soft' : 'ghost'"
         :aria-current="route.path === item.to ? 'page' : undefined"
         size="sm"
-        :to="item.to"
+        :to="'contact' in item ? undefined : item.to"
+        @click="'contact' in item && openContact()"
       />
     </nav>
 
@@ -119,7 +122,7 @@ function mobileNavigate(to: string) {
               ? 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100'
               : 'text-gray-800 hover:bg-gray-100 dark:text-gray-100 dark:hover:bg-gray-800'"
             :aria-current="route.path === item.to ? 'page' : undefined"
-            @click="mobileNavigate(item.to)"
+            @click="mobileNavigate(item)"
           >
             <div class="flex items-center gap-2.5">
               <span class="text-base leading-none">{{ item.icon }}</span>

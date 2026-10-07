@@ -630,6 +630,22 @@ async function handleDownload(format: 'png' | 'jpg' | 'svg' | 'gif') {
   }
 }
 
+// ── Shareable settings links ──────────────────────────────────────────────────
+const route = useRoute()
+const router = useRouter()
+const { open: openContact } = useContactModal()
+const { hasShareParams, applyQuery, copyLink: copyShareLink, copyDebugInfo, SHARE_KEYS } = useShareSettings()
+
+// Apply settings from a shared link, then drop the params so the URL doesn't go stale as the
+// user keeps tweaking. Watched (not read once) because the page is kept alive across in-app nav.
+watch(() => route.query, (query) => {
+  if (route.path !== '/' || !hasShareParams(query)) return
+  applyQuery(query)
+  const rest = Object.fromEntries(Object.entries(query).filter(([k]) => !SHARE_KEYS.includes(k)))
+  router.replace({ query: rest, hash: route.hash })
+  toast.add({ title: 'Settings loaded from link', icon: 'i-lucide-link', color: 'info' })
+}, { immediate: true })
+
 // Load default image on startup (auto-dither triggers via settings watcher)
 onMounted(() => {
   if (!hasImages.value) {
@@ -762,7 +778,7 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, kno
 }, { deep: true })
 
 const footerLinks = [
-  { label: 'Submit Feedback', to: '/contact' },
+  { label: 'Submit Feedback', to: '/contact', contact: true },
   { label: 'Blog', to: '/blog' },
   { label: 'Newsletter', to: 'https://buttondown.com/ditherit', external: true },
   { label: 'Old Version', to: 'https://v2.ditherit.com', external: true }
@@ -861,6 +877,28 @@ const footerLinks = [
       >
         <SidebarContent />
         <USeparator />
+        <div class="flex items-center hover:bg-gray-50 dark:hover:bg-gray-700/50">
+          <button
+            class="flex flex-1 items-center gap-2 py-3 pl-4 text-left text-sm text-gray-600 dark:text-gray-400"
+            @click="copyShareLink"
+          >
+            <UIcon name="i-lucide-copy" class="size-4 shrink-0" />
+            <span class="font-medium">Copy settings</span>
+          </button>
+          <UPopover arrow :content="{ side: 'right' }">
+            <div class="px-4 py-3">
+              <UIcon name="i-lucide-circle-help" class="size-4 cursor-pointer text-ditherit" />
+            </div>
+            <template #content>
+              <div class="max-w-64 p-3 text-sm">
+                Copies a link with your current dither mode, palette and pixel settings.
+                Anyone who opens it starts with the same look. Your images aren't
+                included and never leave your device.
+              </div>
+            </template>
+          </UPopover>
+        </div>
+        <USeparator />
         <button
           class="flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-700/50"
           @click="drawerSettings = true"
@@ -870,6 +908,15 @@ const footerLinks = [
           <UIcon name="i-lucide-chevron-right" class="ml-auto size-3.5 text-gray-400" />
         </button>
       </aside>
+      <UButton
+        label="Copy debug info"
+        icon="i-lucide-bug"
+        color="neutral"
+        variant="link"
+        size="xs"
+        class="mx-3 self-start text-gray-500 dark:text-gray-400"
+        @click="copyDebugInfo"
+      />
       <div v-if="!autoApply" class="relative mx-3 mt-4">
         <span v-if="hasPendingChanges" class="glint absolute -top-3 -right-2 z-10 text-2xl leading-none pointer-events-none">✨</span>
         <UButton
@@ -1320,7 +1367,7 @@ const footerLinks = [
 
     <!-- Right Sidebar (desktop only) — column matches the left sidebar's w-64 so the work area stays centered under the logo -->
     <aside class="hidden lg:block w-64 shrink-0 overflow-y-auto max-h-[calc(100%-1.5rem)] mt-3 mb-3 px-3">
-      <div class="ml-auto flex w-[158px] flex-col gap-3">
+      <div class="flex w-full flex-col gap-3">
         <div
           v-if="selectedImage"
           class="rounded-xl shadow-sm bg-white dark:bg-gray-800 overflow-hidden p-3"
@@ -1364,8 +1411,9 @@ const footerLinks = [
         v-for="link in footerLinks"
         :key="link.label"
         :label="link.label"
-        :to="link.to"
-        :target="link.external ? '_blank' : undefined"
+        :to="'contact' in link ? undefined : link.to"
+        :target="'external' in link ? '_blank' : undefined"
+        @click="'contact' in link && openContact()"
         color="primary"
         variant="link"
         size="xs"
