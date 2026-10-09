@@ -33,8 +33,8 @@ This document tracks features from the original ditherit that need to be impleme
 
 ### Image Comparison
 - [x] Side-by-side comparison slider (img-comparison-slider)
-- [ ] Toggle between original and dithered views (optional)
-- [ ] Full width toggle when viewing original (optional)
+- [x] Toggle between original and dithered views
+- [x] Full width toggle when viewing original
 
 ---
 
@@ -48,9 +48,7 @@ This document tracks features from the original ditherit that need to be impleme
 
 ### Help System
 - [x] Contextual help tooltips for controls
-- [ ] Explanation for Dither Mode
-- [ ] Explanation for Image Size options
-- [ ] Explanation for palette features
+- [x] Explanations for Dither Mode, Image Size and palette features (current tooltips are sufficient)
 
 ### Resources Page
 - [x] `/resources` route
@@ -64,16 +62,16 @@ This document tracks features from the original ditherit that need to be impleme
 ### Updates/Changelog Section
 - [x] Display recent updates
 - [x] Feature announcements with timestamps
-- [ ] Scrollable changelog
+- [x] Scrollable changelog (covered by the blog)
 
 ### Contact Form
-- [ ] Email widget integration (Letterbird or alternative)
-- [ ] Bug report submission
-- [ ] Feature request submission
+- [x] Email widget integration (Netlify Forms, app-wide `ContactModal`)
+- [x] Bug report submission (with optional debug info attachment)
+- [x] Feature request submission
 
 ### Donation Support
-- [ ] Ko-fi button or similar
-- [ ] Support link in footer
+- [x] Ko-fi button or similar (`/support`)
+- [x] Support link in footer (and header)
 
 ### GIF Export
 - [ ] Reduce flicker: keep a pixel's previous dithered color when its source color barely changed (e.g. within ±8 per channel) since that pixel was last updated. Comparing against the last-updated source, not the previous frame, stops slow fades from freezing. Noisy source GIFs flicker in every mode — measured with ±3 source noise: Floyd-Steinberg ~42% of pixels flip per frame, Knoll ~4.5%, Bayer ~1.4%. Also shrinks GIF file size.
@@ -82,9 +80,9 @@ This document tracks features from the original ditherit that need to be impleme
 ### Color Selection Methods
 - [ ] Add Wu's quantizer to `PALETTE_ALGORITHMS` (`app/utils/palette-analysis.ts`) — high quality and fast. Other candidates: octree, NeuQuant.
 
-### Blog/Quant Page
-- [ ] `/quant` route
-- [ ] Quarterly reports / blog posts
+### Blog
+- [x] `/blog` route (replaces the original `/quant` page)
+- [x] Update posts via Nuxt Content
 
 ---
 
