@@ -786,7 +786,7 @@ const footerLinks = [
 </script>
 
 <template>
-  <div class="flex h-dvh flex-col bg-gray-100 dark:bg-gray-900 bg-grid pt-12 lg:pt-0">
+  <div class="relative flex h-dvh flex-col bg-gray-100 dark:bg-gray-900 bg-grid pt-12 lg:pt-0">
     <!-- Hidden file input (multiple) -->
     <input
       ref="fileInputRef"
@@ -1419,6 +1419,9 @@ const footerLinks = [
         size="xs"
       />
     </footer>
+
+    <!-- Quant Frog mascot (desktop only) — click to meet them -->
+    <QuantFrog class="absolute bottom-4 right-4 hidden lg:block" />
   </div>
 </template>
 
