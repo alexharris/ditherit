@@ -139,6 +139,43 @@ onMounted(() => {
   isDesktop.value = mq.matches
   mq.addEventListener('change', (e) => { isDesktop.value = e.matches })
 })
+
+// Desktop sidebar "more below" hint — shown while the sidebar is scrollable and not at the bottom.
+// Once the user reaches the bottom it stays hidden for the rest of the visit (session).
+const SIDEBAR_HINT_KEY = 'ditherit_sidebar_hint_seen'
+const sidebarRef = ref<HTMLElement | null>(null)
+const sidebarHasMore = ref(false)
+let sidebarHintSeen = false
+function updateSidebarHasMore() {
+  const el = sidebarRef.value
+  if (!el || sidebarHintSeen) return
+  const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 8
+  // Only counts as "seen" if there was something to scroll to
+  if (atBottom && el.scrollTop > 0) {
+    sidebarHintSeen = true
+    try {
+      sessionStorage.setItem(SIDEBAR_HINT_KEY, '1')
+    } catch {}
+  }
+  sidebarHasMore.value = !atBottom && !sidebarHintSeen
+}
+function scrollSidebarDown() {
+  sidebarRef.value?.scrollBy({ top: sidebarRef.value.clientHeight * 0.6, behavior: 'smooth' })
+}
+let sidebarObserver: ResizeObserver | null = null
+onMounted(() => {
+  try {
+    sidebarHintSeen = sessionStorage.getItem(SIDEBAR_HINT_KEY) === '1'
+  } catch {}
+  const el = sidebarRef.value
+  if (!el || sidebarHintSeen) return
+  // Observe the sidebar and its children so expanding sections re-check overflow
+  sidebarObserver = new ResizeObserver(updateSidebarHasMore)
+  sidebarObserver.observe(el)
+  for (const child of Array.from(el.children)) sidebarObserver.observe(child)
+  updateSidebarHasMore()
+})
+onUnmounted(() => sidebarObserver?.disconnect())
 const showResizeModal = ref(false)
 const resizeModalImage = ref<GalleryImage | null>(null)
 
@@ -873,7 +910,9 @@ const footerLinks = [
     <!-- Sidebar (desktop only) -->
     <div class="hidden lg:flex w-64 shrink-0 flex-col overflow-hidden">
       <aside
+        ref="sidebarRef"
         class="flex flex-col bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-y-auto max-h-[calc(100%-1.5rem)] mt-3 mb-3 mx-3"
+        @scroll.passive="updateSidebarHasMore"
       >
         <SidebarContent />
         <USeparator />
@@ -907,6 +946,24 @@ const footerLinks = [
           <span class="font-medium">Settings</span>
           <UIcon name="i-lucide-chevron-right" class="ml-auto size-3.5 text-gray-400" />
         </button>
+        <!-- Sticky overlay: -mt-12 cancels its height so toggling it never shifts layout -->
+        <Transition name="fade">
+          <div
+            v-if="sidebarHasMore"
+            class="pointer-events-none sticky bottom-0 -mt-16 flex h-16 shrink-0 items-end justify-center bg-gradient-to-t from-white via-white/80 to-transparent pb-2 dark:from-gray-800 dark:via-gray-800/80"
+          >
+            <UButton
+              label="More"
+              trailing-icon="i-lucide-chevron-down"
+              color="primary"
+              variant="solid"
+              size="sm"
+              aria-label="Scroll for more options"
+              class="more-hint pointer-events-auto rounded-full shadow-md"
+              @click="scrollSidebarDown"
+            />
+          </div>
+        </Transition>
       </aside>
       <UButton
         label="Copy debug info"
@@ -1434,6 +1491,18 @@ const footerLinks = [
   0%, 100% { filter: drop-shadow(0 0 4px rgba(253, 224, 71, 0.6)); }
   50%       { filter: drop-shadow(0 0 12px rgba(253, 224, 71, 1)) drop-shadow(0 0 24px rgba(253, 186, 0, 0.8)); }
 }
+
+.more-hint {
+  animation: more-hint-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes more-hint-pulse {
+  0%, 100% { transform: translateY(0) scale(1); box-shadow: 0 0 0 0 rgba(197, 48, 48, 0.5); }
+  50%       { transform: translateY(4px) scale(1.05); box-shadow: 0 0 0 6px rgba(197, 48, 48, 0); }
+}
+
+.fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
 
 .fab-enter-active, .fab-leave-active { transition: opacity 0.2s ease, transform 0.2s ease; }
 .fab-enter-from, .fab-leave-to { opacity: 0; transform: translateX(-50%) translateY(8px); }
