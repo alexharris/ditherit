@@ -129,18 +129,10 @@ export function useShareSettings() {
     }
   }
 
-  async function copyLink() {
-    try {
-      await navigator.clipboard.writeText(buildUrl())
-      toast.add({
-        title: 'Settings link copied',
-        description: 'Anyone who opens it gets these dither settings. Your image stays on your device.',
-        icon: 'i-lucide-copy',
-        color: 'success'
-      })
-    } catch {
-      toast.add({ title: 'Could not copy link', description: buildUrl(), color: 'error' })
-    }
+  // Back to a fresh start: every setting at its default, palette from the image
+  function resetAll() {
+    applyQuery({})
+    toast.add({ title: 'Settings cleared', icon: 'i-lucide-rotate-ccw', color: 'info' })
   }
 
   // Plain-text dump for bug reports: every setting (not just the shareable non-defaults), the
@@ -215,5 +207,5 @@ export function useShareSettings() {
     }
   }
 
-  return { buildQuery, buildUrl, hasShareParams, applyQuery, copyLink, buildDebugInfo, copyDebugInfo, SHARE_KEYS }
+  return { buildQuery, buildUrl, hasShareParams, applyQuery, resetAll, buildDebugInfo, copyDebugInfo, SHARE_KEYS }
 }

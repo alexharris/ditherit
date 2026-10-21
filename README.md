@@ -19,7 +19,6 @@ A client-side image dithering web app. Upload images, apply dithering algorithms
 - [Nuxt 4](https://nuxt.com) (Vue 3, SPA mode)
 - [Nuxt UI v4](https://ui.nuxt.com) + [Tailwind CSS v4](https://tailwindcss.com)
 - TypeScript
-- [RgbQuant](https://github.com/alexharris/RgbQuant.js/tree/transparency) (custom fork with transparency support)
 - Web Workers for off-main-thread dithering
 - Canvas API for image processing
 

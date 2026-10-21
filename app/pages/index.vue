@@ -671,16 +671,40 @@ async function handleDownload(format: 'png' | 'jpg' | 'svg' | 'gif') {
 const route = useRoute()
 const router = useRouter()
 const { open: openContact } = useContactModal()
-const { hasShareParams, applyQuery, copyLink: copyShareLink, copyDebugInfo, SHARE_KEYS } = useShareSettings()
+const { hasShareParams, applyQuery, resetAll, copyDebugInfo, SHARE_KEYS } = useShareSettings()
 
-// Apply settings from a shared link, then drop the params so the URL doesn't go stale as the
-// user keeps tweaking. Watched (not read once) because the page is kept alive across in-app nav.
+// Settings live in the URL (non-defaults only), so the address bar is always a shareable link.
+// Incoming params are applied; our own URL updates match current state and are skipped.
+// Watched (not read once) because the page is kept alive across in-app nav.
+const { buildQuery } = useShareSettings()
+
+function sharedPart(query: Record<string, unknown>): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const k of SHARE_KEYS) {
+    const v = Array.isArray(query[k]) ? query[k][0] : query[k]
+    if (typeof v === 'string') out[k] = v
+  }
+  return out
+}
+
+function sameQuery(a: Record<string, string>, b: Record<string, string>): boolean {
+  const ka = Object.keys(a)
+  return ka.length === Object.keys(b).length && ka.every(k => a[k] === b[k])
+}
+
 watch(() => route.query, (query) => {
   if (route.path !== '/' || !hasShareParams(query)) return
+  if (sameQuery(sharedPart(query), buildQuery())) return
   applyQuery(query)
-  const rest = Object.fromEntries(Object.entries(query).filter(([k]) => !SHARE_KEYS.includes(k)))
-  router.replace({ query: rest, hash: route.hash })
   toast.add({ title: 'Settings loaded from link', icon: 'i-lucide-link', color: 'info' })
+}, { immediate: true })
+
+watch(() => JSON.stringify(buildQuery()), (json) => {
+  if (route.path !== '/') return
+  const next = JSON.parse(json) as Record<string, string>
+  if (sameQuery(sharedPart(route.query), next)) return
+  const rest = Object.fromEntries(Object.entries(route.query).filter(([k]) => !SHARE_KEYS.includes(k)))
+  router.replace({ query: { ...rest, ...next }, hash: route.hash })
 }, { immediate: true })
 
 // Load default image on startup (auto-dither triggers via settings watcher)
@@ -916,27 +940,13 @@ const footerLinks = [
       >
         <SidebarContent />
         <USeparator />
-        <div class="flex items-center hover:bg-gray-50 dark:hover:bg-gray-700/50">
-          <button
-            class="flex flex-1 items-center gap-2 py-3 pl-4 text-left text-sm text-gray-600 dark:text-gray-400"
-            @click="copyShareLink"
-          >
-            <UIcon name="i-lucide-copy" class="size-4 shrink-0" />
-            <span class="font-medium">Copy settings</span>
-          </button>
-          <UPopover arrow :content="{ side: 'right' }">
-            <div class="px-4 py-3">
-              <UIcon name="i-lucide-circle-help" class="size-4 cursor-pointer text-ditherit" />
-            </div>
-            <template #content>
-              <div class="max-w-64 p-3 text-sm">
-                Copies a link with your current dither mode, palette and pixel settings.
-                Anyone who opens it starts with the same look. Your images aren't
-                included and never leave your device.
-              </div>
-            </template>
-          </UPopover>
-        </div>
+        <button
+          class="flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-700/50"
+          @click="resetAll"
+        >
+          <UIcon name="i-lucide-rotate-ccw" class="size-4 shrink-0" />
+          <span class="font-medium">Clear all</span>
+        </button>
         <USeparator />
         <button
           class="flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-700/50"
@@ -1071,7 +1081,7 @@ const footerLinks = [
               class="flex h-full w-full min-h-0 flex-col items-center"
             >
               <!-- Top zone (flex-1): centered between top bar and image -->
-              <div class="flex flex-1 min-h-0 w-full items-center justify-center">
+              <div class="flex flex-1 w-full items-center justify-center" :class="{ 'py-3': isIntro }">
                 <template v-if="isIntro">
                   <!-- Desktop: drop/paste hint -->
                   <div class="hidden lg:flex items-center gap-3 rounded-lg bg-white px-4 py-2.5 text-sm text-primary ring-1 ring-ditherit/30 dark:bg-gray-800 dark:ring-ditherit/50">
@@ -1099,7 +1109,7 @@ const footerLinks = [
               </div>
 
               <!-- Image + toolbar zone -->
-              <div class="flex min-h-0 w-full flex-[0_0_70%] flex-col items-center justify-center gap-2 lg:flex-[0_0_85%]">
+              <div class="flex min-h-0 w-full flex-[0_1_70%] flex-col items-center justify-center gap-2 lg:flex-[0_1_85%]">
               <!-- Image wrapper -->
               <div
                 ref="imageContainerRef"

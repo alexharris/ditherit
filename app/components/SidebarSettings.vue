@@ -3,7 +3,7 @@ const emit = defineEmits<{ close: [] }>()
 const { autoApply, colorSpace, pixelatedRendering } = useDithering()
 const { autoDownscale } = useImageGallery()
 const colorMode = useColorMode()
-const { copyLink, copyDebugInfo } = useShareSettings()
+const { resetAll, copyDebugInfo } = useShareSettings()
 </script>
 
 <template>
@@ -14,17 +14,16 @@ const { copyLink, copyDebugInfo } = useShareSettings()
     </div>
 
     <!-- Desktop has this in the sidebar -->
-    <div class="space-y-1 lg:hidden">
+    <div class="lg:hidden">
       <UButton
-        label="Copy settings"
-        icon="i-lucide-copy"
+        label="Clear all"
+        icon="i-lucide-rotate-ccw"
         color="neutral"
         variant="outline"
         size="sm"
         block
-        @click="copyLink"
+        @click="resetAll"
       />
-      <p class="text-xs text-muted">Copies a link with your current dither mode, palette and pixel settings. Anyone who opens it starts with the same look. Your images aren't included and never leave your device.</p>
     </div>
 
     <div class="space-y-3">
