@@ -9,7 +9,7 @@ const title = computed(() => {
 const navItems = [
   { label: 'About', to: '/about' },
   { label: 'Resources', to: '/resources' },
-  { label: 'Support', to: '/support' },
+  { label: 'Support', to: 'https://ko-fi.com/alexharris6' },
   { label: 'Contact', to: '/contact', contact: true },
   { label: 'Design System', to: '/design-system' },
 ]
@@ -43,6 +43,7 @@ const navItems = [
             :key="item.to"
             :label="item.label"
             :to="'contact' in item ? undefined : item.to"
+            :target="item.to.startsWith('http') ? '_blank' : undefined"
             :variant="route.path === item.to ? 'soft' : 'ghost'"
             color="neutral"
             size="sm"

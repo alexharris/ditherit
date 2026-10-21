@@ -64,7 +64,8 @@ function mobileNavigate(item: typeof navItems[number]) {
 
     <!-- Desktop support button -->
     <UButton
-      to="/support"
+      to="https://ko-fi.com/alexharris6"
+      target="_blank"
       label="❤️ Support"
       color="primary"
       variant="outline"
@@ -139,7 +140,8 @@ function mobileNavigate(item: typeof navItems[number]) {
 
         <!-- Support CTA -->
         <UButton
-          to="/support"
+          to="https://ko-fi.com/alexharris6"
+          target="_blank"
           label="❤️ Support Dither it!"
           color="primary"
           variant="outline"

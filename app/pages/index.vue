@@ -667,6 +667,38 @@ async function handleDownload(format: 'png' | 'jpg' | 'svg' | 'gif') {
   }
 }
 
+// ── Download modal ────────────────────────────────────────────────────────────
+// One modal for both a single image and the whole set ('all' downloads a ZIP per format)
+const downloadScope = ref<'single' | 'all' | null>(null)
+const downloadOpen = computed({
+  get: () => downloadScope.value !== null,
+  set: (open) => { if (!open) downloadScope.value = null }
+})
+
+function openDownload(scope: 'single' | 'all') {
+  downloadScope.value = scope
+}
+
+const downloadOptions = computed(() => {
+  type Format = 'png' | 'jpg' | 'svg' | 'gif'
+  const all = downloadScope.value === 'all'
+  if (!all && isSelectedGif.value) {
+    return [{ format: 'gif' as Format, label: 'GIF', icon: 'i-lucide-film' }]
+  }
+  return [
+    { format: 'png' as Format, label: all ? footerPngLabel.value : pngSizeLabel.value, icon: 'i-lucide-image' },
+    { format: 'jpg' as Format, label: all ? footerJpgLabel.value : jpgSizeLabel.value, icon: 'i-lucide-image' },
+    { format: 'svg' as Format, label: all ? footerSvgLabel.value : 'SVG', icon: 'i-lucide-file-code' }
+  ]
+})
+
+async function chooseDownload(format: 'png' | 'jpg' | 'svg' | 'gif') {
+  const scope = downloadScope.value
+  downloadScope.value = null
+  if (scope === 'all') await handleDownload(format)
+  else await downloadSingleImage(format)
+}
+
 // ── Shareable settings links ──────────────────────────────────────────────────
 const route = useRoute()
 const router = useRouter()
@@ -878,23 +910,17 @@ const footerLinks = [
         class="bg-white dark:bg-gray-800"
         @click="triggerFileInput"
       />
-      <UPopover v-if="!isDefaultImage" class="shrink-0">
-        <UButton
-          label="💾 Download"
-          color="primary"
-          variant="solid"
-          size="sm"
-          :loading="isDownloadingAll"
-          :disabled="!selectedImage?.ditheredDataUrl"
-        />
-        <template #content="{ close }">
-          <div class="flex flex-col gap-1 p-2">
-            <UButton :label="footerPngLabel" icon="i-lucide-image" color="neutral" variant="ghost" size="sm" class="text-gray-800 dark:text-gray-100" @click="handleDownload('png'); close()" />
-            <UButton :label="footerJpgLabel" icon="i-lucide-image" color="neutral" variant="ghost" size="sm" class="text-gray-800 dark:text-gray-100" @click="handleDownload('jpg'); close()" />
-            <UButton :label="footerSvgLabel" icon="i-lucide-file-code" color="neutral" variant="ghost" size="sm" class="text-gray-800 dark:text-gray-100" @click="handleDownload('svg'); close()" />
-          </div>
-        </template>
-      </UPopover>
+      <UButton
+        v-if="!isDefaultImage"
+        label="💾 Download"
+        color="primary"
+        variant="solid"
+        size="sm"
+        class="shrink-0"
+        :loading="isDownloadingAll"
+        :disabled="!selectedImage?.ditheredDataUrl"
+        @click="openDownload(images.length > 1 ? 'all' : 'single')"
+      />
     </div>
 
     <!-- Mobile Drawers -->
@@ -915,6 +941,42 @@ const footerLinks = [
         <SidebarPixelScale />
       </template>
     </UDrawer>
+
+    <!-- Download modal -->
+    <UModal
+      v-model:open="downloadOpen"
+      :title="downloadScope === 'all' ? `Download all (${images.length} images)` : 'Download'"
+    >
+      <template #body>
+        <div class="flex flex-col gap-2">
+          <button
+            v-for="opt in downloadOptions"
+            :key="opt.format"
+            class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-left ring-1 ring-gray-200 hover:bg-gray-50 dark:ring-gray-700 dark:hover:bg-gray-700/50"
+            @click="chooseDownload(opt.format)"
+          >
+            <UIcon :name="opt.icon" class="size-5 shrink-0 text-gray-500" />
+            <span class="text-sm font-medium text-gray-800 dark:text-gray-100">{{ opt.label }}</span>
+          </button>
+        </div>
+        <USeparator class="my-4" />
+        <div class="flex items-center justify-between gap-4">
+          <p class="text-sm text-gray-500 dark:text-gray-400">
+            Enjoying Dither it!? Please consider a small donation to help keep things running.
+          </p>
+          <UButton
+            label="Donate"
+            icon="i-lucide-heart"
+            to="https://ko-fi.com/alexharris6"
+            target="_blank"
+            color="primary"
+            variant="soft"
+            size="sm"
+            class="shrink-0"
+          />
+        </div>
+      </template>
+    </UModal>
 
     <!-- Settings Drawer — bottom on mobile, left on desktop -->
     <UDrawer
@@ -1028,27 +1090,14 @@ const footerLinks = [
               :disabled="!selectedImage.ditheredDataUrl"
               @click="showCompare = !showCompare"
             />
-            <UPopover>
-              <UButton
-                icon="i-lucide-download"
-                color="neutral"
-                variant="ghost"
-                size="sm"
-                :disabled="!selectedImage.ditheredDataUrl"
-              />
-              <template #content="{ close }">
-                <div class="flex flex-col gap-1 p-2">
-                  <template v-if="isSelectedGif">
-                    <UButton label="GIF" icon="i-lucide-film" color="neutral" variant="ghost" size="sm" class="text-gray-800 dark:text-gray-100" @click="downloadSingleImage('gif'); close()" />
-                  </template>
-                  <template v-else>
-                    <UButton :label="pngSizeLabel" icon="i-lucide-image" color="neutral" variant="ghost" size="sm" class="text-gray-800 dark:text-gray-100" @click="downloadSingleImage('png'); close()" />
-                    <UButton :label="jpgSizeLabel" icon="i-lucide-image" color="neutral" variant="ghost" size="sm" class="text-gray-800 dark:text-gray-100" @click="downloadSingleImage('jpg'); close()" />
-                    <UButton label="SVG" icon="i-lucide-file-code" color="neutral" variant="ghost" size="sm" class="text-gray-800 dark:text-gray-100" @click="downloadSingleImage('svg'); close()" />
-                  </template>
-                </div>
-              </template>
-            </UPopover>
+            <UButton
+              icon="i-lucide-download"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              :disabled="!selectedImage.ditheredDataUrl"
+              @click="openDownload('single')"
+            />
             <UButton
               v-if="!isDefaultImage"
               icon="i-lucide-trash-2"
@@ -1226,29 +1275,16 @@ const footerLinks = [
                     </dl>
                   </template>
                 </UPopover>
-                <UPopover>
-                  <UButton
-                    icon="i-lucide-download"
-                    color="neutral"
-                    variant="ghost"
-                    size="sm"
-                    :disabled="!selectedImage.ditheredDataUrl"
-                  >
-                    <span class="hidden lg:inline">Download</span>
-                  </UButton>
-                  <template #content="{ close }">
-                    <div class="flex flex-col gap-1 p-2">
-                      <template v-if="isSelectedGif">
-                        <UButton label="GIF" icon="i-lucide-film" color="neutral" variant="ghost" size="sm" class="text-gray-800 dark:text-gray-100" @click="downloadSingleImage('gif'); close()" />
-                      </template>
-                      <template v-else>
-                        <UButton :label="pngSizeLabel" icon="i-lucide-image" color="neutral" variant="ghost" size="sm" class="text-gray-800 dark:text-gray-100" @click="downloadSingleImage('png'); close()" />
-                        <UButton :label="jpgSizeLabel" icon="i-lucide-image" color="neutral" variant="ghost" size="sm" class="text-gray-800 dark:text-gray-100" @click="downloadSingleImage('jpg'); close()" />
-                        <UButton label="SVG" icon="i-lucide-file-code" color="neutral" variant="ghost" size="sm" class="text-gray-800 dark:text-gray-100" @click="downloadSingleImage('svg'); close()" />
-                      </template>
-                    </div>
-                  </template>
-                </UPopover>
+                <UButton
+                  icon="i-lucide-download"
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                  :disabled="!selectedImage.ditheredDataUrl"
+                  @click="openDownload('single')"
+                >
+                  <span class="hidden lg:inline">Download</span>
+                </UButton>
                 <UButton
                   icon="i-lucide-bar-chart-2"
                   color="neutral"
@@ -1350,26 +1386,18 @@ const footerLinks = [
           >
             <span>Clear All</span>
           </UButton>
-          <UPopover>
-            <UButton
-              icon="i-lucide-download"
-              color="primary"
-              variant="solid"
-              size="sm"
-              :loading="isDownloadingAll"
-              :disabled="!selectedImage?.ditheredDataUrl"
-              class="shrink-0 whitespace-nowrap"
-            >
-              <span>Download All</span>
-            </UButton>
-            <template #content="{ close }">
-              <div class="flex flex-col gap-1 p-2">
-                <UButton :label="footerPngLabel" icon="i-lucide-image" color="neutral" variant="ghost" size="sm" class="text-gray-800 dark:text-gray-100" @click="handleDownload('png'); close()" />
-                <UButton :label="footerJpgLabel" icon="i-lucide-image" color="neutral" variant="ghost" size="sm" class="text-gray-800 dark:text-gray-100" @click="handleDownload('jpg'); close()" />
-                <UButton :label="footerSvgLabel" icon="i-lucide-file-code" color="neutral" variant="ghost" size="sm" class="text-gray-800 dark:text-gray-100" @click="handleDownload('svg'); close()" />
-              </div>
-            </template>
-          </UPopover>
+          <UButton
+            icon="i-lucide-download"
+            color="primary"
+            variant="solid"
+            size="sm"
+            :loading="isDownloadingAll"
+            :disabled="!selectedImage?.ditheredDataUrl"
+            class="shrink-0 whitespace-nowrap"
+            @click="openDownload('all')"
+          >
+            <span>Download All</span>
+          </UButton>
         </div>
       </footer>
 

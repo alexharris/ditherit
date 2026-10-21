@@ -70,7 +70,7 @@ This document tracks features from the original ditherit that need to be impleme
 - [x] Feature request submission
 
 ### Donation Support
-- [x] Ko-fi button or similar (`/support`)
+- [x] Ko-fi button or similar (header and footer links go to ko-fi.com/alexharris6)
 - [x] Support link in footer (and header)
 
 ### GIF Export
