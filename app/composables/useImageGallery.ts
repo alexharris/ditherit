@@ -476,6 +476,7 @@ export function useImageGallery() {
 
     try {
       const zip = new JSZip()
+      const usedNames = new Set<string>()
 
       // Process any unprocessed images and add all to ZIP
       for (const image of images.value) {
@@ -501,15 +502,21 @@ export function useImageGallery() {
 
         if (blob) {
           const baseName = image.fileName.replace(/\.[^.]+$/, '')
+          let ext = format
           if (image.isAnimatedGif) {
             // Always use .gif extension and skip format conversion for animated GIFs
-            zip.file(`${baseName}-dithered.gif`, blob)
-          } else {
-            if (convertBlob) {
-              blob = await convertBlob(blob)
-            }
-            zip.file(`${baseName}-dithered.${format}`, blob)
+            ext = 'gif'
+          } else if (convertBlob) {
+            blob = await convertBlob(blob)
           }
+          // Images can share a file name (pasted images, phone photos); a repeated
+          // ZIP path would overwrite the earlier entry, so add a numeric suffix
+          let entryName = `${baseName}-dithered.${ext}`
+          for (let n = 2; usedNames.has(entryName.toLowerCase()); n++) {
+            entryName = `${baseName}-dithered-${n}.${ext}`
+          }
+          usedNames.add(entryName.toLowerCase())
+          zip.file(entryName, blob)
         }
       }
 
