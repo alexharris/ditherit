@@ -13,12 +13,25 @@ const navItems = [
   { id: 'about', label: 'About', icon: '💡', to: '/about' },
   { id: 'resources', label: 'Resources', icon: '📚', to: '/resources' },
   { id: 'blog', label: 'Blog', icon: '📣', to: '/blog' },
+  { id: 'mart', label: 'Mart', icon: '🛒', to: 'https://mart.ditherit.com/', external: true },
   { id: 'contact', label: 'Contact', icon: '✉️', to: '/contact', contact: true },
 ]
 
+// Fathom is loaded from a CDN script in nuxt.config.ts; it may be missing (ad blockers, dev)
+function trackEvent(name: string) {
+  (window as { fathom?: { trackEvent: (name: string) => void } }).fathom?.trackEvent(name)
+}
+
+function onNavClick(item: typeof navItems[number]) {
+  if ('contact' in item) openContact()
+  else if (item.id === 'mart') trackEvent('mart click')
+}
+
 function mobileNavigate(item: typeof navItems[number]) {
   isMenuOpen.value = false
+  if (item.id === 'mart') trackEvent('mart click')
   if ('contact' in item) openContact()
+  else if ('external' in item) window.open(item.to, '_blank', 'noopener')
   else router.push(item.to)
 }
 </script>
@@ -58,7 +71,8 @@ function mobileNavigate(item: typeof navItems[number]) {
         :aria-current="route.path === item.to ? 'page' : undefined"
         size="sm"
         :to="'contact' in item ? undefined : item.to"
-        @click="'contact' in item && openContact()"
+        :target="'external' in item ? '_blank' : undefined"
+        @click="onNavClick(item)"
       />
     </nav>
 
