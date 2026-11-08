@@ -17,7 +17,8 @@ useHead({
   ]
 })
 
-const title = 'Dither it!'
+const siteName = 'Dither it!'
+const title = 'Dither it! – Free Online Image Dithering Tool'
 const description = 'Free online image dithering tool. Floyd-Steinberg, Atkinson, Bayer ordered dithering, animated GIFs, and multi-image upload — processed locally in your browser.'
 
 useSeoMeta({
@@ -25,8 +26,10 @@ useSeoMeta({
   description,
   ogTitle: title,
   ogDescription: description,
+  twitterTitle: title,
+  twitterDescription: description,
   ogType: 'website',
-  ogSiteName: title,
+  ogSiteName: siteName,
   ogUrl: canonicalUrl,
   ogImage: `${siteUrl}/og-image.png`,
   ogImageWidth: 1200,
