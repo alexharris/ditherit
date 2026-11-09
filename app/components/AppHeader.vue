@@ -17,11 +17,6 @@ const navItems = [
   { id: 'contact', label: 'Contact', icon: '✉️', to: '/contact', contact: true },
 ]
 
-// Fathom is loaded from a CDN script in nuxt.config.ts; it may be missing (ad blockers, dev)
-function trackEvent(name: string) {
-  (window as { fathom?: { trackEvent: (name: string) => void } }).fathom?.trackEvent(name)
-}
-
 function onNavClick(item: typeof navItems[number]) {
   if ('contact' in item) openContact()
   else if (item.id === 'mart') trackEvent('mart click')
@@ -85,17 +80,6 @@ function mobileNavigate(item: typeof navItems[number]) {
       variant="outline"
       size="sm"
       class="hidden lg:flex bg-white dark:bg-gray-800"
-    />
-
-    <!-- Desktop dark mode toggle -->
-    <UButton
-      :icon="colorMode.value === 'dark' ? 'i-lucide-sun' : 'i-lucide-moon'"
-      :aria-label="colorMode.value === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
-      color="neutral"
-      variant="ghost"
-      size="sm"
-      class="hidden lg:flex"
-      @click="colorMode.preference = colorMode.value === 'dark' ? 'light' : 'dark'"
     />
 
     <!-- Mobile dark mode toggle + menu button -->

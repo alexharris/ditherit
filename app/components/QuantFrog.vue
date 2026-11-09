@@ -4,11 +4,6 @@ const isOpen = ref(false)
 // Bound rather than a static src: Nuxt's dev-server rewrite of static public paths breaks after HMR (`/&/quant-frog.png`)
 const frogSrc = '/quant-frog.png'
 
-// Fathom is loaded from a CDN script in nuxt.config.ts; it may be missing (ad blockers, dev)
-function trackEvent(name: string) {
-  (window as { fathom?: { trackEvent: (name: string) => void } }).fathom?.trackEvent(name)
-}
-
 type Answer = 'say hello' | 'dont'
 
 const RESPONSES: Record<Answer, string> = {

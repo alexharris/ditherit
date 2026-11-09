@@ -45,9 +45,9 @@ const savedKb = computed(() => {
     <!-- Card title -->
     <p class="mb-2 w-full text-sm font-medium text-highlighted">File Size</p>
 
-    <!-- Donut Chart -->
-    <div class="w-full max-w-32 lg:max-w-none">
-      <svg viewBox="0 0 42 42" class="w-full">
+    <!-- Donut chart with percentage and saved amount beside it -->
+    <div class="flex w-full items-center gap-3">
+      <svg viewBox="0 0 42 42" class="size-14 shrink-0" aria-hidden="true">
         <!-- Background ring -->
         <circle
           cx="21"
@@ -55,8 +55,8 @@ const savedKb = computed(() => {
           r="15.91549430918954"
           fill="transparent"
           stroke="currentColor"
-          stroke-width="3"
-          class="text-gray-100 dark:text-gray-800"
+          stroke-width="5"
+          class="text-gray-100 dark:text-gray-700"
         />
         <!-- Percentage segment -->
         <circle
@@ -66,36 +66,30 @@ const savedKb = computed(() => {
           r="15.91549430918954"
           fill="transparent"
           :style="{ stroke: isSmaller ? '#22c55e' : 'var(--ui-primary)' }"
-          stroke-width="3"
+          stroke-width="5"
           :stroke-dasharray="strokeDashArray"
           stroke-dashoffset="25"
           class="transition-all duration-300"
         />
-        <!-- Center text -->
-        <text
-          x="21"
-          y="21"
-          text-anchor="middle"
-          dominant-baseline="middle"
-          class="fill-current"
-          :class="ditheredFileSize ? 'text-gray-800 dark:text-gray-100' : 'text-gray-100 dark:text-gray-400'"
-        >
-          <!-- Text scales with the chart; shrink it where the chart is uncapped so it reads at the same size -->
-          <tspan x="21" font-size="5" font-weight="bold" class="lg:text-[3px]">{{ ditheredFileSize ? `${percentage}%` : '—' }}</tspan>
-        </text>
       </svg>
+      <div class="min-w-0">
+        <p
+          class="text-xl font-bold leading-tight"
+          :class="ditheredFileSize ? 'text-gray-800 dark:text-gray-100' : 'text-gray-300 dark:text-gray-500'"
+        >
+          {{ ditheredFileSize ? `${percentage}%` : '—' }}
+        </p>
+        <p
+          class="text-xs font-medium"
+          :class="ditheredFileSize && isSmaller ? 'text-green-600 dark:text-green-400' : 'text-gray-300 dark:text-gray-500'"
+        >
+          {{ ditheredFileSize && isSmaller ? `${savedKb} KB` : '— KB' }} saved
+        </p>
+      </div>
     </div>
 
-    <!-- Saved amount -->
-    <p
-      class="mt-1 text-sm font-medium"
-      :class="ditheredFileSize && isSmaller ? 'text-green-600 dark:text-green-400' : 'text-gray-100 dark:text-gray-400'"
-    >
-      {{ ditheredFileSize && isSmaller ? `${savedKb} KB` : '— KB' }} saved
-    </p>
-
     <!-- Size details -->
-    <div class="mt-3 w-full space-y-1.5 text-xs">
+    <div class="mt-2 w-full space-y-1 text-xs">
       <div class="flex flex-wrap justify-between gap-x-1">
         <span class="text-gray-800 dark:text-gray-100">Original</span>
         <span class="font-medium text-gray-800 dark:text-gray-100">{{ originalKb }} KB</span>
@@ -114,7 +108,7 @@ const savedKb = computed(() => {
     </div>
 
     <!-- Upscale note -->
-    <p v-if="isDimensionsIncreased" class="mt-3 w-full text-center text-xs text-amber-500 dark:text-amber-400">
+    <p v-if="isDimensionsIncreased" class="mt-2 w-full text-center text-xs text-amber-500 dark:text-amber-400">
       Image upscaled {{ upscalePercent }}%
     </p>
   </div>

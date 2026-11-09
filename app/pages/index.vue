@@ -749,6 +749,17 @@ onMounted(() => {
   if (stored !== null) autoApply.value = stored !== 'false'
 })
 
+const rightMenuItems = [
+  { label: 'Feedback', icon: 'i-lucide-message-square-heart', contact: true },
+  { label: 'Blog', icon: 'i-lucide-newspaper', to: '/blog' },
+  { label: 'Mart', icon: 'i-lucide-shopping-cart', to: 'https://mart.ditherit.com/', external: true }
+]
+
+function onRightMenuClick(item: typeof rightMenuItems[number]) {
+  if ('contact' in item) openContact()
+  else if (item.label === 'Mart') trackEvent('mart click')
+}
+
 watch(autoApply, (val) => {
   localStorage.setItem('ditherit_auto_apply', String(val))
   if (val && selectedImage.value && sizeValid.value) debouncedDither()
@@ -873,6 +884,7 @@ watch([ditherMode, algorithm, serpentine, pixeliness, pixelScale, bayerSize, kno
 const footerLinks = [
   { label: 'Submit Feedback', to: '/contact', contact: true },
   { label: 'Blog', to: '/blog' },
+  { label: 'Mart', to: 'https://mart.ditherit.com/', external: true },
   { label: 'Newsletter', to: 'https://buttondown.com/ditherit', external: true },
   { label: 'Old Version', to: 'https://v2.ditherit.com', external: true }
 ]
@@ -1037,15 +1049,6 @@ const footerLinks = [
           </div>
         </Transition>
       </aside>
-      <UButton
-        label="Copy debug info"
-        icon="i-lucide-bug"
-        color="neutral"
-        variant="link"
-        size="xs"
-        class="mx-3 self-start text-gray-500 dark:text-gray-400"
-        @click="copyDebugInfo"
-      />
       <div v-if="!autoApply" class="relative mx-3 mt-4">
         <span v-if="hasPendingChanges" class="glint absolute -top-3 -right-2 z-10 text-2xl leading-none pointer-events-none">✨</span>
         <UButton
@@ -1477,24 +1480,48 @@ const footerLinks = [
             class="w-full"
           />
         </div>
-        <!-- Temporarily hidden — these links live in the footer for now; still shown in the mobile menu (AppHeader)
-        <SidebarFeedback />
-        <SidebarLatestPost />
-        <NewsletterSignup />
-        <a href="https://v2.ditherit.com" target="_blank" rel="noopener" class="block">
-          <UCard
-            variant="soft"
-            :ui="{ root: 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors cursor-pointer shadow-sm', body: 'p-3 sm:p-3' }"
-          >
-            <p class="mb-1 text-sm font-medium text-highlighted">
-              🏁 Looking for the old version?
-            </p>
-            <p class="text-sm text-gray-800 dark:text-gray-100">
-              Version 2 is still available at v2.ditherit.com.
-            </p>
-          </UCard>
-        </a>
-        -->
+        <nav class="flex flex-col overflow-hidden rounded-xl bg-white shadow-sm dark:bg-gray-800" aria-label="More">
+          <template v-for="(item, i) in rightMenuItems" :key="item.label">
+            <USeparator v-if="i > 0" />
+            <NuxtLink
+              :to="'contact' in item ? undefined : item.to"
+              :target="'external' in item ? '_blank' : undefined"
+              :rel="'external' in item ? 'noopener' : undefined"
+              :role="'contact' in item ? 'button' : undefined"
+              :tabindex="'contact' in item ? 0 : undefined"
+              class="flex w-full cursor-pointer items-center gap-2 px-4 py-3 text-left text-sm text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-gray-700/50"
+              @click="onRightMenuClick(item)"
+              @keydown.enter="'contact' in item && openContact()"
+            >
+              <UIcon :name="item.icon" class="size-4 shrink-0" />
+              <span class="font-medium">{{ item.label }}</span>
+              <UIcon
+                :name="'external' in item ? 'i-lucide-arrow-up-right' : 'i-lucide-chevron-right'"
+                class="ml-auto size-3.5 text-gray-400"
+              />
+            </NuxtLink>
+          </template>
+        </nav>
+        <div class="flex items-center gap-1">
+          <UButton
+            label="Copy debug info"
+            icon="i-lucide-bug"
+            color="neutral"
+            variant="link"
+            size="xs"
+            class="text-gray-500 dark:text-gray-400"
+            @click="copyDebugInfo"
+          />
+          <UButton
+            :icon="colorMode.value === 'dark' ? 'i-lucide-sun' : 'i-lucide-moon'"
+            :aria-label="colorMode.value === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
+            color="neutral"
+            variant="link"
+            size="xs"
+            class="text-gray-500 dark:text-gray-400"
+            @click="colorMode.preference = colorMode.value === 'dark' ? 'light' : 'dark'"
+          />
+        </div>
       </div>
     </aside>
 
@@ -1508,7 +1535,7 @@ const footerLinks = [
         :label="link.label"
         :to="'contact' in link ? undefined : link.to"
         :target="'external' in link ? '_blank' : undefined"
-        @click="'contact' in link && openContact()"
+        @click="'contact' in link ? openContact() : link.label === 'Mart' && trackEvent('mart click')"
         color="primary"
         variant="link"
         size="xs"
