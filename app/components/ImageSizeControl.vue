@@ -77,45 +77,58 @@ watch(customWidthInput, () => {
 </script>
 
 <template>
-  <div class="flex items-center gap-1.5">
-    <label for="img-width" class="text-xs text-gray-500 dark:text-gray-400">W</label>
-    <UInput
-      id="img-width"
-      v-model="customWidthInput"
-      type="number"
-      :min="1"
-      :max="MAX_WIDTH"
-      class="w-16"
-      :color="useCustomSize && !isWidthValid ? 'error' : 'neutral'"
-      @focus="enableCustomSize"
-      @keydown.enter="applySize"
-    />
-    <span class="text-xs text-gray-500 dark:text-gray-400">&times;</span>
-    <label for="img-height" class="text-xs text-gray-500 dark:text-gray-400">H</label>
-    <UInput
-      id="img-height"
-      :model-value="calculatedHeight"
-      type="number"
-      class="w-16 opacity-50"
-      disabled
-    />
-    <UButton
-      v-if="autoApply !== false"
-      icon="i-lucide-check"
-      :color="isDirty && isWidthValid ? 'primary' : 'neutral'"
-      :variant="isDirty && isWidthValid ? 'solid' : 'soft'"
-      aria-label="Apply size"
-      :disabled="!isDirty || !isWidthValid"
-      @click="applySize"
-    />
-    <UButton
-      v-if="useCustomSize && !isDirty"
-      icon="i-lucide-rotate-ccw"
-      color="neutral"
-      variant="ghost"
-      aria-label="Reset to original size"
-      @click="resetToOriginalSize"
-    />
+  <div class="flex flex-col items-start gap-1">
+    <div class="flex items-center gap-1.5">
+      <label
+        for="img-width"
+        class="text-xs text-gray-500 dark:text-gray-400"
+      >W</label>
+      <UInput
+        id="img-width"
+        v-model="customWidthInput"
+        type="number"
+        :min="1"
+        :max="MAX_WIDTH"
+        class="w-16"
+        :color="useCustomSize && !isWidthValid ? 'error' : 'neutral'"
+        @focus="enableCustomSize"
+        @keydown.enter="applySize"
+      />
+      <span class="text-xs text-gray-500 dark:text-gray-400">&times;</span>
+      <label
+        for="img-height"
+        class="text-xs text-gray-500 dark:text-gray-400"
+      >H</label>
+      <UInput
+        id="img-height"
+        :model-value="calculatedHeight"
+        type="number"
+        class="w-16 opacity-50"
+        disabled
+      />
+    </div>
+    <div
+      v-if="autoApply !== false || (useCustomSize && !isDirty)"
+      class="flex items-center gap-2"
+    >
+      <UButton
+        v-if="autoApply !== false"
+        label="Apply"
+        size="xs"
+        :color="isDirty && isWidthValid ? 'primary' : 'neutral'"
+        :variant="isDirty && isWidthValid ? 'solid' : 'soft'"
+        :disabled="!isDirty || !isWidthValid"
+        @click="applySize"
+      />
+      <button
+        v-if="useCustomSize && !isDirty"
+        type="button"
+        class="text-xs text-gray-500 dark:text-gray-400 underline hover:text-gray-700 dark:hover:text-gray-200 cursor-pointer"
+        @click="resetToOriginalSize"
+      >
+        Reset
+      </button>
+    </div>
   </div>
 </template>
 
