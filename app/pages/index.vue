@@ -66,7 +66,6 @@ const {
 } = usePalette()
 
 const toast = useToast()
-const colorMode = useColorMode()
 
 const fileInputRef = ref<HTMLInputElement>()
 const canvasRef = ref<HTMLCanvasElement>()
@@ -703,7 +702,7 @@ async function chooseDownload(format: 'png' | 'jpg' | 'svg' | 'gif') {
 const route = useRoute()
 const router = useRouter()
 const { open: openContact } = useContactModal()
-const { hasShareParams, applyQuery, resetAll, copyDebugInfo, SHARE_KEYS } = useShareSettings()
+const { hasShareParams, applyQuery, resetAll, SHARE_KEYS } = useShareSettings()
 
 // Settings live in the URL (non-defaults only), so the address bar is always a shareable link.
 // Incoming params are applied; our own URL updates match current state and are skipped.
@@ -748,6 +747,9 @@ onMounted(() => {
   const stored = localStorage.getItem('ditherit_auto_apply')
   if (stored !== null) autoApply.value = stored !== 'false'
 })
+
+// Bound rather than a static src: see QuantFrog.vue (dev-server rewrite of public paths breaks after HMR)
+const hatSrc = '/dither-it-hat.gif'
 
 const rightMenuItems = [
   { label: 'Feedback', icon: 'i-lucide-message-square-heart', contact: true },
@@ -1502,26 +1504,20 @@ const footerLinks = [
             </NuxtLink>
           </template>
         </nav>
-        <div class="flex items-center gap-1">
-          <UButton
-            label="Copy debug info"
-            icon="i-lucide-bug"
-            color="neutral"
-            variant="link"
-            size="xs"
-            class="text-gray-500 dark:text-gray-400"
-            @click="copyDebugInfo"
-          />
-          <UButton
-            :icon="colorMode.value === 'dark' ? 'i-lucide-sun' : 'i-lucide-moon'"
-            :aria-label="colorMode.value === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
-            color="neutral"
-            variant="link"
-            size="xs"
-            class="text-gray-500 dark:text-gray-400"
-            @click="colorMode.preference = colorMode.value === 'dark' ? 'light' : 'dark'"
-          />
-        </div>
+        <a
+          href="https://mart.ditherit.com/"
+          target="_blank"
+          rel="noopener"
+          class="mx-auto block w-32"
+          aria-label="Dither it! hat — shop at Mart"
+          @click="trackEvent('mart click')"
+        >
+          <img
+            :src="hatSrc"
+            alt="Black cap embroidered with Dither it! in red"
+            class="block w-full"
+          >
+        </a>
       </div>
     </aside>
 

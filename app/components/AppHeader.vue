@@ -82,6 +82,17 @@ function mobileNavigate(item: typeof navItems[number]) {
       class="hidden lg:flex bg-white dark:bg-gray-800"
     />
 
+    <!-- Desktop dark mode toggle -->
+    <UButton
+      :icon="colorMode.value === 'dark' ? 'i-lucide-sun' : 'i-lucide-moon'"
+      :aria-label="colorMode.value === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
+      color="neutral"
+      variant="ghost"
+      size="sm"
+      class="hidden lg:flex"
+      @click="colorMode.preference = colorMode.value === 'dark' ? 'light' : 'dark'"
+    />
+
     <!-- Mobile dark mode toggle + menu button -->
     <div class="ml-auto flex items-center gap-0.5 lg:hidden">
       <UButton
